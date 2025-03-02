@@ -17,6 +17,7 @@ import { useAuth } from '../../../../actions/authContext';
 import { insertEnvio } from '../../../../services/EnviosService';
 import { getClientes_1 } from '../../../../services/ClientesService';
 import { getAllCountries } from '../../../../services/LocationService';
+import { getDestinatariosPorCliente } from '../../../../services/DestinatariosService';
 
 const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
     const theme = useTheme();
@@ -24,6 +25,8 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
     const [clients, setClients] = useState([]);
     const [countries, setCountries] = useState([]);
     const [selectedClient, setSelectedClient] = useState(null);
+    const [destinatarios, setDestinatarios] = useState([]);
+    const [selectedDestinatario, setSelectedDestinatario] = useState(null);
     
     const [formData, setFormData] = useState({
         cantidad_cajas: '',
@@ -35,7 +38,8 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
         num_envio: '',
         usr_creo: user?.nom_usuario || '',
         fk_cod_cliente: '',
-        fk_cod_direccion: ''
+        fk_cod_direccion: '',
+        fk_cod_destinatario: ''
     });
 
     const [loading, setLoading] = useState(false);
@@ -79,19 +83,50 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
         }
     }, [user]);
 
+    useEffect(() => {
+        const fetchDestinatarios = async () => {
+            if (selectedClient?.COD_CLIENTE) {
+                try {
+                    const response = await getDestinatariosPorCliente(selectedClient.COD_CLIENTE);
+                    const destinatariosArray = Array.isArray(response.data) ? response.data : []; // Asegurar que sea un array
+                    setDestinatarios(destinatariosArray);
+                } catch (error) {
+                    console.error('Error al obtener los destinatarios:', error);
+                    setSnackbarMessage('Error al obtener los destinatarios');
+                    setSnackbarSeverity('error');
+                    setOpenSnackbar(true);
+                    setDestinatarios([]); // Asegurar que se maneje un array vacío en caso de error
+                }
+            } else {
+                setDestinatarios([]); // Resetear destinatarios si no hay cliente seleccionado
+            }
+        };
+    
+        fetchDestinatarios();
+    }, [selectedClient]);    
+
     const handleClientChange = (event, newValue) => {
         setSelectedClient(newValue);
         if (newValue) {
             setFormData(prevData => ({
                 ...prevData,
-                fk_cod_pais_origen: newValue.COD_PAIS || '',
-                fk_cod_departamento: newValue.COD_DEPARTAMENTO || '',
-                fk_cod_municipio: newValue.COD_MUNICIPIO || '',
                 fk_cod_persona: newValue.COD_PERSONA || '',
                 fk_cod_cliente: newValue.COD_CLIENTE || '',
-                fk_cod_direccion: newValue.COD_DIRECCION || ''
+                fk_cod_destinatario: ''
             }));
         }
+    };
+
+    const handleDestinatarioChange = (event, newValue) => {
+        setSelectedDestinatario(newValue);
+        setFormData(prevData => ({
+            ...prevData,
+            fk_cod_destinatario: newValue?.COD_DESTINATARIO || '',
+            fk_cod_pais_destino: newValue?.COD_PAIS || '',
+            fk_cod_departamento: newValue?.COD_DEPARTAMENTO || '',
+            fk_cod_municipio: newValue?.COD_MUNICIPIO || '',
+            fk_cod_direccion: newValue?.COD_DIRECCION || ''
+        }));
     };
 
     const handleChange = (e) => {
@@ -109,15 +144,13 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
             !formData.cantidad_cajas ||
             !formData.fk_cod_pais_origen ||
             !formData.fk_cod_pais_destino ||
-            !formData.num_envio ||
             !formData.fk_cod_persona ||
-            !formData.fk_cod_cliente
+            !formData.fk_cod_cliente ||
+            !formData.fk_cod_destinatario
         ) {
             setError('Por favor completa todos los campos obligatorios');
             return;
         }
-
-        console.log('Datos que se enviarán:', formData);
 
         setLoading(true);
         setError(null);
@@ -151,9 +184,11 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
             num_envio: '',
             usr_creo: user?.nom_usuario || '',
             fk_cod_cliente: '',
-            fk_cod_direccion: ''
+            fk_cod_direccion: '',
+            fk_cod_destinatario: ''
         });
         setSelectedClient(null);
+        setSelectedDestinatario(null);
         setError(null);
         handleClose();
     };
@@ -212,6 +247,15 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
                             )}
                         />
 
+                        <Autocomplete
+                            options={destinatarios || []} // Asegurar que sea un array
+                            getOptionLabel={(option) => option?.NOM_PERSONA || ''}
+                            value={selectedDestinatario}
+                            onChange={handleDestinatarioChange}
+                            disabled={!selectedClient || destinatarios.length === 0}
+                            renderInput={(params) => <TextField {...params} label="Seleccionar Destinatario" required />}
+                        />
+
                         <TextField
                             label="Cantidad de Cajas"
                             name="cantidad_cajas"
@@ -224,6 +268,21 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
                         <Autocomplete
                             options={countries}
                             getOptionLabel={(option) => option ? option.NOM_PAIS || '' : ''}
+                            value={findOptionByCode(countries, formData.fk_cod_pais_origen, 'COD_PAIS')}
+                            onChange={(event, newValue) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    fk_cod_pais_origen: newValue?.COD_PAIS || ''
+                                }));
+                            }}
+                            renderInput={(params) => (
+                                <TextField {...params} label="País de origen" required />
+                            )}
+                        />
+                        
+                        <Autocomplete
+                            options={countries}
+                            getOptionLabel={(option) => option ? option.NOM_PAIS || '' : ''}
                             value={findOptionByCode(countries, formData.fk_cod_pais_destino, 'COD_PAIS')}
                             onChange={(event, newValue) => {
                                 setFormData(prev => ({
@@ -231,81 +290,39 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
                                     fk_cod_pais_destino: newValue?.COD_PAIS || ''
                                 }));
                             }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="País de origen"
-                                    required
-                                />
-                            )}
-                        />
-                        
-                        <Autocomplete
-                            options={clients}
-                            getOptionLabel={(option) => option ? option.NOM_PAIS || '' : ''}
-                            value={findOptionByCode(clients, formData.fk_cod_pais_origen, 'COD_PAIS')}
-                            onChange={(event, newValue) => {
-                                setFormData(prev => ({
-                                    ...prev,
-                                    fk_cod_pais_origen: newValue?.COD_PAIS || ''
-                                }));
-                            }}
                             disabled
                             renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="País de destino"
-                                    required
-                                />
+                                <TextField {...params} label="País de destino" required />
                             )}
                         />
 
                         <Autocomplete
-                            options={clients}
+                            options={destinatarios}
                             getOptionLabel={(option) => option ? option.NOM_DEPARTAMENTO || '' : ''}
-                            value={findOptionByCode(clients, formData.fk_cod_departamento, 'COD_DEPARTAMENTO')}
-                            onChange={(event, newValue) => {
-                                setFormData(prev => ({
-                                    ...prev,
-                                    fk_cod_departamento: newValue?.COD_DEPARTAMENTO || ''
-                                }));
-                            }}
+                            value={findOptionByCode(destinatarios, formData.fk_cod_departamento, 'COD_DEPARTAMENTO')}
                             disabled
                             renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Departamento"
-                                    required
-                                />
+                                <TextField {...params} label="Departamento" required />
                             )}
                         />
 
                         <Autocomplete
-                            options={clients}
+                            options={destinatarios}
                             getOptionLabel={(option) => option ? option.NOM_MUNICIPIO || '' : ''}
-                            value={findOptionByCode(clients, formData.fk_cod_municipio, 'COD_MUNICIPIO')}
-                            onChange={(event, newValue) => {
-                                setFormData(prev => ({
-                                    ...prev,
-                                    fk_cod_municipio: newValue?.COD_MUNICIPIO || ''
-                                }));
-                            }}
-                            disabled
+                            value={findOptionByCode(destinatarios, formData.fk_cod_municipio, 'COD_MUNICIPIO')}
+                            disabled // ✅ Bloqueado porque el destinatario lo define
                             renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Municipio"
-                                    required
-                                />
+                                <TextField {...params} label="Municipio" required />
                             )}
                         />
 
                         <TextField
                             label="Dirección"
-                            value={selectedClient?.DIRECCION || ''}
+                            value={selectedDestinatario?.DIRECCION || ''}
                             disabled
                             fullWidth
                             multiline
+                            required
                         />
 
                         <TextField
@@ -313,7 +330,6 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
                             name="num_envio"
                             value={formData.num_envio}
                             onChange={handleChange}
-                            required
                         />
 
                         {error && <Box sx={{ color: 'red', textAlign: 'center' }}>{error}</Box>}
@@ -356,6 +372,7 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
                 open={openSnackbar}
                 autoHideDuration={6000}
                 onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
                 <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity}>
                     {snackbarMessage}

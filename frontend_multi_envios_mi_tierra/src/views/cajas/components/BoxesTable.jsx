@@ -86,7 +86,6 @@ const BoxTable = () => {
     };
 
     const handleEdit = (box) => {
-        console.log('Caja seleccionada para editar:', box);
         setSelectedBox({
             COD_CAJA: box.COD_CAJA,
             COD_PRECIO: box.COD_PRECIO,

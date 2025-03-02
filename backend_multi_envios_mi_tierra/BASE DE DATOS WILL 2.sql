@@ -300,9 +300,24 @@ CREATE TABLE TBL_OP_CLIENTES (
 CHARACTER SET UTF8MB4
 COLLATE utf8mb4_0900_ai_ci;
 
+CREATE TABLE TBL_DESTINATARIOS (
+    COD_DESTINATARIO BIGINT PRIMARY KEY AUTO_INCREMENT,
+    FK_COD_CLIENTE BIGINT NOT NULL,
+    FK_COD_PERSONA BIGINT NOT NULL,
+    USR_CREO VARCHAR(50) NOT NULL,
+    FEC_CREACION DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    USR_MODIFICO VARCHAR(50) DEFAULT NULL,
+    FEC_MODIFICACION DATETIME DEFAULT NULL,
+    FOREIGN KEY (FK_COD_CLIENTE) REFERENCES TBL_OP_CLIENTES (COD_CLIENTE),
+    FOREIGN KEY (FK_COD_PERSONA) REFERENCES TBL_PERSONAS (COD_PERSONA)
+) ENGINE = InnoDB
+CHARACTER SET UTF8MB4
+COLLATE utf8mb4_0900_ai_ci;
+
 CREATE TABLE TBL_DATOS_ENVIO (
     COD_ENVIO BIGINT PRIMARY KEY AUTO_INCREMENT,
     FK_COD_CLIENTE BIGINT NOT NULL,
+    FK_COD_DESTINATARIO BIGINT DEFAULT NULL,
     CANTIDAD_CAJAS INT NOT NULL,
     FK_COD_PAIS_ORIGEN BIGINT NOT NULL,
     FK_COD_PAIS_DESTINO BIGINT NOT NULL,
@@ -311,6 +326,7 @@ CREATE TABLE TBL_DATOS_ENVIO (
     FK_COD_DIRECCION BIGINT NOT NULL,
     FK_COD_PERSONA BIGINT NOT NULL,
     NUM_ENVIO VARCHAR(50) DEFAULT NULL,
+    IND_ESTADO TINYINT DEFAULT 0 NOT NULL,
 	USR_CREO VARCHAR(50) NOT NULL,
     FEC_CREACION DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     USR_MODIFICO VARCHAR(50) DEFAULT NULL,
@@ -321,7 +337,8 @@ CREATE TABLE TBL_DATOS_ENVIO (
     FOREIGN KEY (FK_COD_DEPARTAMENTO) REFERENCES TBL_DEPARTAMENTOS (COD_DEPARTAMENTO),
     FOREIGN KEY (FK_COD_MUNICIPIO) REFERENCES TBL_MUNICIPIOS (COD_MUNICIPIO),
     FOREIGN KEY (FK_COD_DIRECCION) REFERENCES TBL_DIRECCIONES (COD_DIRECCION),
-    FOREIGN KEY (FK_COD_PERSONA) REFERENCES TBL_PERSONAS (COD_PERSONA)
+    FOREIGN KEY (FK_COD_PERSONA) REFERENCES TBL_PERSONAS (COD_PERSONA),
+    FOREIGN KEY (FK_COD_DESTINATARIO) REFERENCES TBL_DESTINATARIOS (COD_DESTINATARIO)
 ) ENGINE = InnoDB
 CHARACTER SET UTF8MB4
 COLLATE utf8mb4_0900_ai_ci;
@@ -332,7 +349,8 @@ CREATE TABLE TBL_PAQUETE (
     ESTADO TINYINT DEFAULT 0 NOT NULL,
     FK_COD_CLIENTE BIGINT NOT NULL,
     FK_COD_ENVIO BIGINT NOT NULL,
-    FEC_ENTREGA DATETIME DEFAULT NULL,
+    FK_COD_DESCUENTO BIGINT DEFAULT NULL,
+    FEC_ENTREGA DATE DEFAULT NULL,
 	USR_CREO VARCHAR(50) NOT NULL,
     FEC_CREACION DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     USR_MODIFICO VARCHAR(50) DEFAULT NULL,
@@ -1561,36 +1579,23 @@ CREATE PROCEDURE INS_PRECIO(
     IN p_usr_creo VARCHAR(50)
 )
 BEGIN
-    DECLARE v_precio_existe INT;
+    START TRANSACTION;
 
-    -- Validar si ya existe un precio para el país
-    SELECT COUNT(*) INTO v_precio_existe 
-    FROM TBL_PRECIOS 
-    WHERE FK_COD_PAIS = p_fk_cod_pais;
-
-    -- Si no existe un precio para el país, proceder con la inserción
-    IF v_precio_existe = 0 THEN
-        START TRANSACTION;
-
+    BEGIN
+        DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
-            DECLARE EXIT HANDLER FOR SQLEXCEPTION
-            BEGIN
-                ROLLBACK;
-                SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'Error al insertar el precio. Verifica los datos ingresados.';
-            END;
-
-            INSERT INTO TBL_PRECIOS (FK_COD_PAIS, PRECIO, USR_CREO)
-            VALUES (p_fk_cod_pais, p_precio, p_usr_creo);
-
-            COMMIT;
-
-            SELECT 'Precio insertado correctamente.' AS mensaje, TRUE AS success;
+            ROLLBACK;
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Error al insertar el precio. Verifica los datos ingresados.';
         END;
-    ELSE
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Ya existe un precio para este país.';
-    END IF;
+
+        INSERT INTO TBL_PRECIOS (FK_COD_PAIS, PRECIO, USR_CREO)
+        VALUES (p_fk_cod_pais, p_precio, p_usr_creo);
+
+        COMMIT;
+
+        SELECT 'Precio insertado correctamente.' AS mensaje, TRUE AS success;
+    END;
 END //
 DELIMITER ;
 
@@ -2355,6 +2360,7 @@ DELIMITER $$
 
 CREATE PROCEDURE INS_DATOS_ENVIO(
     IN p_fk_cod_cliente BIGINT,
+    IN p_fk_cod_destinatario BIGINT,
     IN p_cantidad_cajas INT,
     IN p_fk_cod_pais_origen BIGINT,
     IN p_fk_cod_pais_destino BIGINT,
@@ -2380,6 +2386,7 @@ BEGIN
     -- Insertar datos de envío
     INSERT INTO TBL_DATOS_ENVIO (
         FK_COD_CLIENTE,
+        FK_COD_DESTINATARIO,
         CANTIDAD_CAJAS,
         FK_COD_PAIS_ORIGEN,
         FK_COD_PAIS_DESTINO,
@@ -2391,6 +2398,7 @@ BEGIN
         USR_CREO
     ) VALUES (
         p_fk_cod_cliente,
+        p_fk_cod_destinatario,
         p_cantidad_cajas,
         p_fk_cod_pais_origen,
         p_fk_cod_pais_destino,
@@ -2419,73 +2427,132 @@ BEGIN
     SELECT 
         de.COD_ENVIO,
         de.NUM_ENVIO,
-        cl.COD_CLIENTE,
-        cl.FK_COD_PERSONA,
-        p.NOM_PERSONA,
-        de.FK_COD_PAIS_ORIGEN,
-        pa.NOM_PAIS AS PAIS_ORIGEN,
-        de.FK_COD_PAIS_DESTINO,
-        pd.NOM_PAIS AS PAIS_DESTINO,
+        de.FEC_CREACION,
+
+        -- Datos del Cliente (solo código y nombre)
+        cl.COD_CLIENTE AS COD_CLIENTE_ENVIO,
+        pc.NOM_PERSONA AS NOMBRE_CLIENTE,
+
+        -- Datos del Destinatario
+        de.FK_COD_DESTINATARIO,
+        dest.FK_COD_PERSONA AS FK_PERSONA_DESTINATARIO,
+        pd.NOM_PERSONA AS NOMBRE_DESTINATARIO,
+
+        -- Información de la Dirección del Destinatario
         d.COD_DIRECCION,
         d.DIRECCION,
         d.FK_COD_MUNICIPIO,
         m.NOM_MUNICIPIO,
         dp.NOM_DEPARTAMENTO,
-        de.CANTIDAD_CAJAS
+        p.COD_PAIS AS FK_COD_PAIS_DESTINO,
+        p.NOM_PAIS AS PAIS_DESTINO,
+
+        -- Información del Envío
+        de.CANTIDAD_CAJAS,
+        de.FK_COD_PAIS_ORIGEN,
+        po.NOM_PAIS AS PAIS_ORIGEN
     FROM TBL_DATOS_ENVIO de
-    INNER JOIN TBL_OP_CLIENTES cl ON de.FK_COD_CLIENTE = cl.COD_CLIENTE
-    INNER JOIN TBL_PERSONAS p ON cl.FK_COD_PERSONA = p.COD_PERSONA
-    INNER JOIN TBL_PAISES pa ON de.FK_COD_PAIS_ORIGEN = pa.COD_PAIS
-    INNER JOIN TBL_PAISES pd ON de.FK_COD_PAIS_DESTINO = pd.COD_PAIS
-    INNER JOIN TBL_DIRECCIONES d ON de.FK_COD_DIRECCION = d.COD_DIRECCION
-    INNER JOIN TBL_MUNICIPIOS m ON d.FK_COD_MUNICIPIO = m.COD_MUNICIPIO
-    INNER JOIN TBL_DEPARTAMENTOS dp ON de.FK_COD_DEPARTAMENTO = dp.COD_DEPARTAMENTO;
+    
+    -- Cliente (solo código y nombre)
+    LEFT JOIN TBL_OP_CLIENTES cl ON de.FK_COD_CLIENTE = cl.COD_CLIENTE
+    LEFT JOIN TBL_PERSONAS pc ON cl.FK_COD_PERSONA = pc.COD_PERSONA
+
+    -- Destinatario
+    LEFT JOIN TBL_DESTINATARIOS dest ON de.FK_COD_DESTINATARIO = dest.COD_DESTINATARIO
+    LEFT JOIN TBL_PERSONAS pd ON dest.FK_COD_PERSONA = pd.COD_PERSONA
+
+    -- Dirección del Destinatario
+    LEFT JOIN TBL_DIRECCIONES d ON dest.FK_COD_PERSONA = d.FK_COD_PERSONA -- Relacionamos dirección con la persona destinataria
+    LEFT JOIN TBL_MUNICIPIOS m ON d.FK_COD_MUNICIPIO = m.COD_MUNICIPIO
+    LEFT JOIN TBL_DEPARTAMENTOS dp ON m.FK_COD_DEPARTAMENTO = dp.COD_DEPARTAMENTO
+    LEFT JOIN TBL_PAISES p ON dp.FK_COD_PAIS = p.COD_PAIS -- País destino del destinatario
+
+    -- País de origen del envío
+    INNER JOIN TBL_PAISES po ON de.FK_COD_PAIS_ORIGEN = po.COD_PAIS;
 END$$
 
 DELIMITER ;
 
 DELIMITER $$
 
-CREATE PROCEDURE INS_PAQUETE(
-    IN p_fk_cod_caja BIGINT,
-    IN p_fk_cod_cliente BIGINT,
-    IN p_fk_cod_envio BIGINT,
-    IN p_fec_entrega DATETIME,
-    IN p_usr_creo VARCHAR(50)
+CREATE PROCEDURE INS_MULTIPAQUETE(
+    IN p_datos_paquetes JSON -- Recibe un JSON con los datos de los paquetes
 )
 BEGIN
     DECLARE v_cod_paquete BIGINT;
-    
+    DECLARE v_fk_cod_caja BIGINT;
+    DECLARE v_fk_cod_cliente BIGINT;
+    DECLARE v_fk_cod_envio BIGINT;
+    DECLARE v_fec_entrega DATE;
+    DECLARE v_usr_creo VARCHAR(50);
+    DECLARE v_fk_cod_descuento BIGINT;
+    DECLARE v_indice INT DEFAULT 0;
+    DECLARE v_total INT;
+
     -- Manejador de errores
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
-        SELECT 'Error al crear el registro de paquete' AS Mensaje;
+        SELECT 'Error al crear los registros de paquetes' AS Mensaje;
     END;
 
     START TRANSACTION;
 
-    -- Insertar datos del paquete
-    INSERT INTO TBL_PAQUETE (
-        FK_COD_CAJA,
-        FK_COD_CLIENTE,
-        FK_COD_ENVIO,
-        FEC_ENTREGA,
-        USR_CREO
-    ) VALUES (
-        p_fk_cod_caja,
-        p_fk_cod_cliente,
-        p_fk_cod_envio,
-        p_fec_entrega,
-        p_usr_creo
-    );
+    -- Obtener el número de elementos en el JSON
+    SET v_total = JSON_LENGTH(p_datos_paquetes);
 
-    -- Obtener el código del paquete generado
-    SET v_cod_paquete = LAST_INSERT_ID();
+    -- Iterar sobre cada paquete en el JSON
+    WHILE v_indice < v_total DO
+        -- Extraer datos de cada paquete
+        SET v_fk_cod_caja = JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fk_cod_caja')));
+        SET v_fk_cod_cliente = JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fk_cod_cliente')));
+        SET v_fk_cod_envio = JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fk_cod_envio')));
+        SET v_usr_creo = JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].usr_creo')));
+        
+        -- Extraer el código de descuento, si existe, de lo contrario asignar NULL
+        SET v_fk_cod_descuento = CASE 
+            WHEN JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fk_cod_descuento'))) = 'null' THEN NULL
+            ELSE JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fk_cod_descuento')))
+        END;
+
+        -- Validar si la fecha es 'null' y asignar NULL en ese caso
+        SET v_fec_entrega = CASE 
+            WHEN JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fec_entrega'))) = 'null' THEN NULL
+            ELSE JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fec_entrega')))
+        END;
+
+        -- Insertar datos del paquete con el nuevo campo de descuento
+        INSERT INTO TBL_PAQUETE (
+            FK_COD_CAJA,
+            FK_COD_CLIENTE,
+            FK_COD_ENVIO,
+            FK_COD_DESCUENTO,
+            FEC_ENTREGA,
+            USR_CREO
+        ) VALUES (
+            v_fk_cod_caja,
+            v_fk_cod_cliente,
+            v_fk_cod_envio,
+            v_fk_cod_descuento,
+            v_fec_entrega,
+            v_usr_creo
+        );
+
+        -- Obtener el código del paquete generado
+        SET v_cod_paquete = LAST_INSERT_ID();
+
+        -- Actualizar el estado en TBL_DATOS_ENVIO
+        UPDATE TBL_DATOS_ENVIO
+        SET IND_ESTADO = 1
+        WHERE COD_ENVIO = v_fk_cod_envio;
+
+        -- Incrementar índice
+        SET v_indice = v_indice + 1;
+    END WHILE;
 
     COMMIT;
 
-    SELECT 'Paquete creado exitosamente', v_cod_paquete AS CodigoPaquete;
+    SELECT 'Paquetes creados exitosamente' AS Mensaje;
 END$$
 
 DELIMITER ;
@@ -2496,7 +2563,6 @@ CREATE PROCEDURE GET_PAQUETES()
 BEGIN
     SELECT 
         p.COD_PAQUETE,
-        p.FK_COD_CAJA,
         c.ID_CAJA,
         p.ESTADO,
         p.FK_COD_CLIENTE,
@@ -2504,17 +2570,32 @@ BEGIN
         pe.NOM_PERSONA,
         p.FK_COD_ENVIO,
         e.NUM_ENVIO,
-        p.FEC_ENTREGA
+        p.FEC_ENTREGA,
+        d.CANTIDAD AS DESCUENTO_CANTIDAD,
+        td.ES_PORCENTAJE,
+        pr.PRECIO AS PRECIO_ORIGINAL,  -- Se obtiene desde TBL_PRECIOS
+        CASE 
+            WHEN td.ES_PORCENTAJE = 1 THEN ROUND(pr.PRECIO - (pr.PRECIO * d.CANTIDAD / 100), 2) -- Aplica ROUND con 4 decimales
+            WHEN td.ES_PORCENTAJE = 0 THEN pr.PRECIO - d.CANTIDAD
+            ELSE pr.PRECIO
+        END AS PRECIO_FINAL
     FROM 
         TBL_PAQUETE p
     INNER JOIN 
         TBL_CAJAS c ON p.FK_COD_CAJA = c.COD_CAJA
     INNER JOIN 
+        TBL_PRECIOS pr ON c.FK_COD_PRECIO = pr.COD_PRECIO  -- Se une para obtener el PRECIO correcto
+    INNER JOIN 
         TBL_OP_CLIENTES cl ON p.FK_COD_CLIENTE = cl.COD_CLIENTE
     INNER JOIN 
         TBL_PERSONAS pe ON cl.FK_COD_PERSONA = pe.COD_PERSONA
     INNER JOIN 
-        TBL_DATOS_ENVIO e ON p.FK_COD_ENVIO = e.COD_ENVIO;
+        TBL_DATOS_ENVIO e ON p.FK_COD_ENVIO = e.COD_ENVIO
+    LEFT JOIN 
+        TBL_DESCUENTOS d ON p.FK_COD_DESCUENTO = d.COD_DESCUENTO
+    LEFT JOIN 
+        TBL_TIPO_DESCUENTOS td ON d.FK_COD_TIPO_DESCUENTO = td.COD_TIPO_DESCUENTO;  
+
 END$$
 
 DELIMITER ;
@@ -2540,5 +2621,456 @@ BEGIN
     LEFT JOIN TBL_MUNICIPIOS M ON D.COD_DEPARTAMENTO = M.FK_COD_DEPARTAMENTO
     ORDER BY P.COD_PAIS, D.COD_DEPARTAMENTO, M.COD_MUNICIPIO;
 END //
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE GET_ENVIOS_POR_CLIENTE(
+    IN p_fk_cod_cliente BIGINT
+)
+BEGIN
+    -- Manejador de errores
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SELECT 'Error al obtener los datos de los envíos' AS Mensaje;
+    END;
+
+    START TRANSACTION;
+
+    -- Obtener los envíos del cliente especificado con su cantidad de cajas y el nombre del destinatario
+    SELECT 
+        e.COD_ENVIO AS CodigoEnvio,
+        e.CANTIDAD_CAJAS AS CantidadCajas,
+        p.NOM_PERSONA AS NombreDestinatario
+    FROM 
+        TBL_DATOS_ENVIO e
+    LEFT JOIN 
+        TBL_DESTINATARIOS d ON e.FK_COD_DESTINATARIO = d.COD_DESTINATARIO
+    LEFT JOIN 
+        TBL_PERSONAS p ON d.FK_COD_PERSONA = p.COD_PERSONA
+    WHERE 
+        e.FK_COD_CLIENTE = p_fk_cod_cliente 
+        AND e.IND_ESTADO = 0;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE GET_CLIENTES_ENVIO()
+BEGIN
+    SELECT 
+        -- Datos del cliente
+        cl.COD_CLIENTE,
+        -- Datos de la persona
+        p.COD_PERSONA,
+        p.NOM_PERSONA,
+		pa.NOM_PAIS
+    FROM TBL_OP_CLIENTES cl
+    -- Join con persona
+    INNER JOIN TBL_PERSONAS p ON cl.FK_COD_PERSONA = p.COD_PERSONA
+    -- Joins con ubicación
+    INNER JOIN TBL_PAISES pa ON p.FK_COD_PAIS = pa.COD_PAIS
+    -- Join con datos de envío (solo clientes con envíos IND_ESTADO = 0)
+    WHERE EXISTS (
+        SELECT 1
+        FROM TBL_DATOS_ENVIO de
+        WHERE de.FK_COD_CLIENTE = cl.COD_CLIENTE
+          AND de.IND_ESTADO = 0
+    )
+    -- Ordenar por código de cliente
+    ORDER BY cl.COD_CLIENTE DESC;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_GET_GANANCIAS_POR_DIA_MES_ANIO()
+BEGIN
+    SELECT 
+        YEAR(P.FEC_CREACION) AS Anio,
+        MONTH(P.FEC_CREACION) AS Mes,
+        DAY(P.FEC_CREACION) AS Dia,
+        SUM(Pr.PRECIO) AS Total_Ganancias
+    FROM 
+        TBL_PAQUETE P
+    INNER JOIN 
+        TBL_CAJAS C ON P.FK_COD_CAJA = C.COD_CAJA
+    INNER JOIN 
+        TBL_PRECIOS Pr ON C.FK_COD_PRECIO = Pr.COD_PRECIO
+    GROUP BY 
+        YEAR(P.FEC_CREACION), MONTH(P.FEC_CREACION), DAY(P.FEC_CREACION)
+    ORDER BY 
+        YEAR(P.FEC_CREACION), MONTH(P.FEC_CREACION), DAY(P.FEC_CREACION);
+END $$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_GET_GANANCIAS_POR_MES_ANIO()
+BEGIN
+    SELECT 
+        YEAR(P.FEC_CREACION) AS Anio,
+        MONTH(P.FEC_CREACION) AS Mes,
+        SUM(Pr.PRECIO) AS Total_Ganancias
+    FROM 
+        TBL_PAQUETE P
+    INNER JOIN 
+        TBL_CAJAS C ON P.FK_COD_CAJA = C.COD_CAJA
+    INNER JOIN 
+        TBL_PRECIOS Pr ON C.FK_COD_PRECIO = Pr.COD_PRECIO
+    GROUP BY 
+        YEAR(P.FEC_CREACION), MONTH(P.FEC_CREACION)
+    ORDER BY 
+        YEAR(P.FEC_CREACION), MONTH(P.FEC_CREACION);
+END $$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_GET_GANANCIAS_POR_ANIO()
+BEGIN
+    SELECT 
+        YEAR(P.FEC_CREACION) AS Anio,
+        SUM(Pr.PRECIO) AS Total_Ganancias
+    FROM 
+        TBL_PAQUETE P
+    INNER JOIN 
+        TBL_CAJAS C ON P.FK_COD_CAJA = C.COD_CAJA
+    INNER JOIN 
+        TBL_PRECIOS Pr ON C.FK_COD_PRECIO = Pr.COD_PRECIO
+    GROUP BY 
+        YEAR(P.FEC_CREACION)
+    ORDER BY 
+        YEAR(P.FEC_CREACION);
+END $$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE GET_ULTIMOS_6_CLIENTES()
+BEGIN
+    SELECT 
+        C.COD_CLIENTE, 
+        P.NOM_PERSONA, 
+        C.FEC_CREACION
+    FROM TBL_OP_CLIENTES C
+    JOIN TBL_PERSONAS P ON C.FK_COD_PERSONA = P.COD_PERSONA
+    ORDER BY C.FEC_CREACION DESC
+    LIMIT 6;
+END $$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE GET_CAJAS_CON_INFO()
+BEGIN
+    SELECT 
+        C.COD_CAJA,
+        C.ID_CAJA,
+        C.DETALLE,
+        P.PRECIO,
+        PA.NOM_PAIS
+    FROM TBL_CAJAS C
+    INNER JOIN TBL_PRECIOS P ON C.FK_COD_PRECIO = P.COD_PRECIO
+    INNER JOIN TBL_PAISES PA ON P.FK_COD_PAIS = PA.COD_PAIS;
+END $$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE UPD_DATOS_ENVIO_NUM_ENVIO(
+    IN p_cod_envio BIGINT,
+    IN p_num_envio VARCHAR(50),
+    IN p_usr_modifico VARCHAR(50)
+)
+BEGIN
+    -- Manejo de errores
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SELECT 'Error al actualizar el número de envío' AS Mensaje, FALSE AS success;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Actualizar solo el número de envío y datos de auditoría
+    UPDATE TBL_DATOS_ENVIO 
+    SET 
+        NUM_ENVIO = p_num_envio,
+        USR_MODIFICO = p_usr_modifico,
+        FEC_MODIFICO = CURRENT_TIMESTAMP
+    WHERE COD_ENVIO = p_cod_envio;
+    
+    COMMIT;
+    
+    SELECT 'Número de envío actualizado correctamente' AS Mensaje, TRUE AS success;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE UPD_PAQUETE_ESTADO(
+    IN p_cod_paquete BIGINT,
+    IN p_estado TINYINT,
+    IN p_fec_entrega DATE,
+    IN p_usr_modifico VARCHAR(50)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SELECT 'Error al actualizar el paquete' AS Mensaje, FALSE AS success;
+    END;
+    
+    START TRANSACTION;
+    
+    UPDATE TBL_PAQUETE 
+    SET 
+        ESTADO = p_estado,
+        FEC_ENTREGA = p_fec_entrega,
+        USR_MODIFICO = p_usr_modifico,
+        FEC_MODIFICO = CURRENT_TIMESTAMP
+    WHERE COD_PAQUETE = p_cod_paquete;
+    
+    COMMIT;
+    
+    SELECT 'Paquete actualizado correctamente' AS Mensaje, TRUE AS success;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE INS_DESTINATARIO(
+    -- Datos de persona
+    IN p_id_persona VARCHAR(30),
+    IN p_nom_persona VARCHAR(250),
+    IN p_fk_cod_genero BIGINT,
+    -- Datos de ubicación
+    IN p_fk_cod_pais BIGINT,
+    IN p_fk_cod_departamento BIGINT,
+    IN p_fk_cod_municipio BIGINT,
+    -- Datos de contacto
+    IN p_telefono VARCHAR(15),
+    IN p_correo VARCHAR(50),
+    -- Datos de dirección
+    IN p_direccion VARCHAR(255),
+    -- Código del cliente al que se vincula
+    IN p_fk_cod_cliente BIGINT,
+    -- Usuario que crea
+    IN p_usr_creo VARCHAR(50)
+)
+BEGIN
+    DECLARE v_cod_persona BIGINT;
+
+    -- Manejador de errores
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SELECT 'Error al crear el destinatario' AS Mensaje;
+    END;
+
+    START TRANSACTION;
+
+    -- Insertar persona (destinatario)
+    INSERT INTO TBL_PERSONAS (
+        ID_PERSONA,
+        NOM_PERSONA,
+        FK_COD_GENERO,
+        FK_COD_PAIS,
+        FK_COD_DEPARTAMENTO,
+        FK_COD_MUNICIPIO,
+        USR_CREO
+    ) VALUES (
+        p_id_persona,
+        p_nom_persona,
+        p_fk_cod_genero,
+        p_fk_cod_pais,
+        p_fk_cod_departamento,
+        p_fk_cod_municipio,
+        p_usr_creo
+    );
+
+    -- Obtener el código de persona generado
+    SET v_cod_persona = LAST_INSERT_ID();
+
+    -- Insertar teléfono
+    INSERT INTO TBL_TELEFONOS (
+        FK_COD_PERSONA,
+        TELEFONO,
+        USR_CREO
+    ) VALUES (
+        v_cod_persona,
+        p_telefono,
+        p_usr_creo
+    );
+
+    -- Insertar correo
+    INSERT INTO TBL_CORREOS (
+        FK_COD_PERSONA,
+        CORREO,
+        USR_CREO
+    ) VALUES (
+        v_cod_persona,
+        p_correo,
+        p_usr_creo
+    );
+
+    -- Insertar dirección
+    INSERT INTO TBL_DIRECCIONES (
+        FK_COD_PERSONA,
+        FK_COD_MUNICIPIO,
+        DIRECCION,
+        USR_CREO
+    ) VALUES (
+        v_cod_persona,
+        p_fk_cod_municipio,
+        p_direccion,
+        p_usr_creo
+    );
+
+    -- Insertar destinatario vinculado al cliente
+    INSERT INTO TBL_DESTINATARIOS (
+        FK_COD_CLIENTE,
+        FK_COD_PERSONA,
+        USR_CREO
+    ) VALUES (
+        p_fk_cod_cliente,
+        v_cod_persona,
+        p_usr_creo
+    );
+
+    COMMIT;
+
+    SELECT 'Destinatario creado exitosamente' AS Mensaje;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE GET_DESTINATARIOS_POR_CLIENTE(
+    IN p_cod_cliente BIGINT
+)
+BEGIN
+    SELECT 
+        -- Datos del destinatario
+        d.COD_DESTINATARIO,
+        -- Datos de la persona
+        p.COD_PERSONA,
+        p.ID_PERSONA,
+        p.NOM_PERSONA,
+        -- Datos del género
+        g.COD_GENERO,
+        g.GENERO,
+        -- Datos de ubicación
+        pa.COD_PAIS,
+        pa.NOM_PAIS,
+        pa.NUM_ZONA,
+        dep.COD_DEPARTAMENTO,
+        dep.NOM_DEPARTAMENTO,
+        mun.COD_MUNICIPIO,
+        mun.NOM_MUNICIPIO,
+        mun.ID_POSTAL,
+        -- Datos de dirección
+        dir.COD_DIRECCION,
+        dir.DIRECCION,
+        -- Datos de contacto
+        t.TELEFONO,
+        c.CORREO
+    FROM TBL_DESTINATARIOS d
+    -- Join con persona
+    INNER JOIN TBL_PERSONAS p ON d.FK_COD_PERSONA = p.COD_PERSONA
+    -- Join con género
+    INNER JOIN TBL_GENEROS g ON p.FK_COD_GENERO = g.COD_GENERO
+    -- Joins con ubicación
+    INNER JOIN TBL_PAISES pa ON p.FK_COD_PAIS = pa.COD_PAIS
+    INNER JOIN TBL_DEPARTAMENTOS dep ON p.FK_COD_DEPARTAMENTO = dep.COD_DEPARTAMENTO
+    INNER JOIN TBL_MUNICIPIOS mun ON p.FK_COD_MUNICIPIO = mun.COD_MUNICIPIO
+    -- Join con dirección
+    LEFT JOIN TBL_DIRECCIONES dir ON p.COD_PERSONA = dir.FK_COD_PERSONA
+    -- Join con teléfono
+    LEFT JOIN TBL_TELEFONOS t ON p.COD_PERSONA = t.FK_COD_PERSONA
+    -- Join con correo
+    LEFT JOIN TBL_CORREOS c ON p.COD_PERSONA = c.FK_COD_PERSONA
+    -- Filtrar por cliente específico
+    WHERE d.FK_COD_CLIENTE = p_cod_cliente
+    -- Ordenar por código de destinatario
+    ORDER BY d.COD_DESTINATARIO DESC;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE UPD_PAQUETES_ESTADO_MASIVO_JSON(
+    IN p_USR_MODIFICO VARCHAR(50),  -- Usuario que realiza la modificación
+    IN p_PAQUETES JSON              -- JSON con la lista de paquetes a actualizar
+)
+BEGIN
+    DECLARE v_i INT DEFAULT 0;
+    DECLARE v_count INT;
+    DECLARE v_COD_PAQUETE BIGINT;
+    DECLARE v_ESTADO TINYINT;
+    DECLARE v_FEC_ENTREGA DATE;
+
+    -- Manejo de errores
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SELECT 'Error al actualizar los paquetes' AS Mensaje, FALSE AS success;
+    END;
+
+    -- Iniciar transacción
+    START TRANSACTION;
+
+    -- Obtener el número de paquetes en el JSON
+    SET v_count = JSON_LENGTH(p_PAQUETES);
+
+    -- Si no hay paquetes, se revierte la transacción y se envía el mensaje de error
+    IF v_count IS NULL OR v_count = 0 THEN
+        ROLLBACK;
+        SELECT 'No se proporcionaron paquetes para actualizar' AS Mensaje, FALSE AS success;
+    ELSE
+        -- Iterar sobre cada paquete en el JSON
+        WHILE v_i < v_count DO
+            -- Extraer valores del JSON
+            SET v_COD_PAQUETE = JSON_UNQUOTE(JSON_EXTRACT(p_PAQUETES, CONCAT('$[', v_i, '].COD_PAQUETE')));
+            SET v_ESTADO = JSON_UNQUOTE(JSON_EXTRACT(p_PAQUETES, CONCAT('$[', v_i, '].ESTADO')));
+            SET v_FEC_ENTREGA = JSON_UNQUOTE(JSON_EXTRACT(p_PAQUETES, CONCAT('$[', v_i, '].FEC_ENTREGA')));
+
+            -- Actualizar el paquete en la base de datos
+            UPDATE TBL_PAQUETE 
+            SET 
+                ESTADO = v_ESTADO,
+                FEC_ENTREGA = v_FEC_ENTREGA,
+                USR_MODIFICO = p_USR_MODIFICO,
+                FEC_MODIFICO = CURRENT_TIMESTAMP
+            WHERE COD_PAQUETE = v_COD_PAQUETE;
+
+            -- Incrementar contador
+            SET v_i = v_i + 1;
+        END WHILE;
+
+        -- Confirmar transacción
+        COMMIT;
+
+        -- Mensaje de éxito
+        SELECT CONCAT(v_count, ' paquetes actualizados correctamente.') AS Mensaje, TRUE AS success;
+    END IF;
+
+END$$
 
 DELIMITER ;

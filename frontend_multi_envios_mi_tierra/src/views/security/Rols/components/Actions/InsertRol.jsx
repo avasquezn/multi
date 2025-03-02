@@ -58,7 +58,6 @@ const InsertRol = ({ show, handleClose, onRoleInserted }) => {
 
         try {
             const message = await insertRole(formData);
-            console.log('Rol insertado:', message);
 
             setSnackbarMessage('Rol agregado exitosamente');
             setSnackbarSeverity('success');
@@ -68,7 +67,7 @@ const InsertRol = ({ show, handleClose, onRoleInserted }) => {
             handleCloseModal();
         } catch (err) {
             setError(err.message);
-            console.error('Error al insertar el rol:', err);
+            console.error('Error al insertar el rol:');
 
             setError(err.message || 'Error al agregar el rol');
         } finally {

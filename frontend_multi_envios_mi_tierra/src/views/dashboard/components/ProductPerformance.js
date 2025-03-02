@@ -1,154 +1,143 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Typography, Box,
+    Typography, Box, Button,
     Table,
     TableBody,
     TableCell,
     TableHead,
     TableRow,
-    Chip
+    Chip,
+    CircularProgress
 } from '@mui/material';
 import DashboardCard from '../../../components/shared/DashboardCard';
+import { getCajasConInfo } from '../../../services/DashboardService';
 
-const products = [
-    {
-        id: "1",
-        name: "Sunil Joshi",
-        post: "Web Designer",
-        pname: "Elite Admin",
-        priority: "Low",
-        pbg: "primary.main",
-        budget: "3.9",
-    },
-    {
-        id: "2",
-        name: "Andrew McDownland",
-        post: "Project Manager",
-        pname: "Real Homes WP Theme",
-        priority: "Medium",
-        pbg: "secondary.main",
-        budget: "24.5",
-    },
-    {
-        id: "3",
-        name: "Christopher Jamil",
-        post: "Project Manager",
-        pname: "MedicalPro WP Theme",
-        priority: "High",
-        pbg: "error.main",
-        budget: "12.8",
-    },
-    {
-        id: "4",
-        name: "Nirav Joshi",
-        post: "Frontend Engineer",
-        pname: "Hosting Press HTML",
-        priority: "Critical",
-        pbg: "success.main",
-        budget: "2.4",
-    },
-];
-
+const ITEMS_PER_PAGE = 4; // Cantidad de cajas por página
 
 const ProductPerformance = () => {
-    return (
+    const [cajas, setCajas] = useState([]);
+    const [visibleCajas, setVisibleCajas] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
-        <DashboardCard title="Product Performance">
+    useEffect(() => {
+        const fetchCajas = async () => {
+            try {
+                const data = await getCajasConInfo();
+                setCajas(data);
+                setVisibleCajas(data.slice(0, ITEMS_PER_PAGE)); // Mostrar las primeras 4 cajas
+            } catch (err) {
+                setError(err.message || 'Error al obtener las cajas.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCajas();
+    }, []);
+
+    const handleShowMore = () => {
+        const nextPage = currentPage + 1;
+        const startIndex = nextPage * ITEMS_PER_PAGE - ITEMS_PER_PAGE;
+        const newVisibleCajas = cajas.slice(0, startIndex + ITEMS_PER_PAGE);
+
+        setVisibleCajas(newVisibleCajas);
+        setCurrentPage(nextPage);
+    };
+
+    return (
+        <DashboardCard title="Listado de Cajas">
             <Box sx={{ overflow: 'auto', width: { xs: '280px', sm: 'auto' } }}>
-                <Table
-                    aria-label="simple table"
-                    sx={{
-                        whiteSpace: "nowrap",
-                        mt: 2
-                    }}
-                >
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>
-                                <Typography variant="subtitle2" fontWeight={600}>
-                                    Id
-                                </Typography>
-                            </TableCell>
-                            <TableCell>
-                                <Typography variant="subtitle2" fontWeight={600}>
-                                    Assigned
-                                </Typography>
-                            </TableCell>
-                            <TableCell>
-                                <Typography variant="subtitle2" fontWeight={600}>
-                                    Name
-                                </Typography>
-                            </TableCell>
-                            <TableCell>
-                                <Typography variant="subtitle2" fontWeight={600}>
-                                    Priority
-                                </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                                <Typography variant="subtitle2" fontWeight={600}>
-                                    Budget
-                                </Typography>
-                            </TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {products.map((product) => (
-                            <TableRow key={product.name}>
-                                <TableCell>
-                                    <Typography
-                                        sx={{
-                                            fontSize: "15px",
-                                            fontWeight: "500",
-                                        }}
-                                    >
-                                        {product.id}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Box
-                                        sx={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                        }}
-                                    >
-                                        <Box>
+                {loading ? (
+                    <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+                        <CircularProgress />
+                    </Box>
+                ) : error ? (
+                    <Typography color="error" textAlign="center">{error}</Typography>
+                ) : (
+                    <>
+                        <Table
+                            aria-label="tabla de cajas"
+                            sx={{
+                                whiteSpace: "nowrap",
+                                mt: 2
+                            }}
+                        >
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>
+                                        <Typography variant="subtitle2" fontWeight={600}>
+                                            Id Caja
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="subtitle2" fontWeight={600}>
+                                            ID Caja
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="subtitle2" fontWeight={600}>
+                                            Detalle
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="subtitle2" fontWeight={600}>
+                                            País
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="subtitle2" fontWeight={600}>
+                                            Precio
+                                        </Typography>
+                                    </TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {visibleCajas.map((caja) => (
+                                    <TableRow key={caja.COD_CAJA}>
+                                        <TableCell>
+                                            <Typography sx={{ fontSize: "15px", fontWeight: "500" }}>
+                                                {caja.COD_CAJA}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
                                             <Typography variant="subtitle2" fontWeight={600}>
-                                                {product.name}
+                                                {caja.ID_CAJA}
                                             </Typography>
-                                            <Typography
-                                                color="textSecondary"
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography color="textSecondary" variant="subtitle2" fontWeight={400}>
+                                                {caja.DETALLE}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
                                                 sx={{
-                                                    fontSize: "13px",
+                                                    px: "4px",
+                                                    backgroundColor: "primary.main",
+                                                    color: "#fff",
                                                 }}
-                                            >
-                                                {product.post}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                </TableCell>
-                                <TableCell>
-                                    <Typography color="textSecondary" variant="subtitle2" fontWeight={400}>
-                                        {product.pname}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        sx={{
-                                            px: "4px",
-                                            backgroundColor: product.pbg,
-                                            color: "#fff",
-                                        }}
-                                        size="small"
-                                        label={product.priority}
-                                    ></Chip>
-                                </TableCell>
-                                <TableCell align="right">
-                                    <Typography variant="h6">${product.budget}k</Typography>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                                size="small"
+                                                label={caja.NOM_PAIS}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="h6">${caja.PRECIO}</Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                        <Box textAlign="center" mt={2}>
+                            {visibleCajas.length < cajas.length && (
+                                <Button variant="contained" color="primary" onClick={handleShowMore}>
+                                    Mostrar más
+                                </Button>
+                            )}
+                        </Box>
+                    </>
+                )}
             </Box>
         </DashboardCard>
     );

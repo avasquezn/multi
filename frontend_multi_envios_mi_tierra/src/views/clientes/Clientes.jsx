@@ -5,7 +5,7 @@ import InsertUser from './components/actions/InsertCliente';
 import NoPermissionAlert from '../../utils/NoPermissionAlert';
 import '../../styles/h1.css';
 
-const Users = () => {
+const Clientes = () => {
     const [showModal, setShowModal] = useState(false);
     const { user } = useAuth();
     const rolPermission = user?.permisos?.find(permiso => permiso.objectName === 'Clientes');
@@ -28,4 +28,4 @@ const Users = () => {
     );
 };
 
-export default Users;
+export default Clientes;

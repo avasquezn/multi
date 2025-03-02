@@ -90,7 +90,6 @@ const GenderTable = () => {
     };
 
     const handleEdit = (gender) => {
-        console.log(gender);
         setSelectedGender(gender);
         setUpdateGenderOpen(true);
     };

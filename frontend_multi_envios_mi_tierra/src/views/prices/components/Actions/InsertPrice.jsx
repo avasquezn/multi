@@ -78,7 +78,6 @@ const InsertPrice = ({ show, handleClose, onPriceInserted }) => {
 
         try {
             const message = await insertPrice(formData);
-            console.log('Precio insertado:', message);
 
             setSnackbarMessage('Precio agregado exitosamente');
             setSnackbarSeverity('success');

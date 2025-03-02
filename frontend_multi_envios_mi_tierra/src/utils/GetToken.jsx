@@ -9,10 +9,9 @@ export const getTokenFromUrl = () => {
       }
 
       const decodedToken = atob(state);
-      console.log('Decoded token:', decodedToken); // Debug log
       return decodedToken;
     } catch (error) {
-      console.error('Error decoding token:', error);
+      console.error('Error decoding token:');
       return null;
     }
   };

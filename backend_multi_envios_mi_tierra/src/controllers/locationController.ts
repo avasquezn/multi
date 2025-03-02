@@ -214,7 +214,7 @@ export const getAllDeparments_1 = async (req: Request, res: Response) => {
   }
 
   try {
-      const departments = await sequelize.query('CALL GET_DEPARMENTS_2(:cod_pais)', {
+      const departments = await sequelize.query('CALL GET_COUNTRIES_WITH_DEPARTMENTS(:cod_pais)', {
           replacements: { cod_pais: parseInt(cod_pais as string, 10) },
           type: QueryTypes.RAW,
       });
@@ -234,7 +234,7 @@ export const getAllMunicipios_1 = async (req: Request, res: Response) => {
 
   try {
       const cities = await sequelize.query(
-          'CALL GET_CITIES_2(:cod_departamento)',
+          'CALL GET_CITIES_BY_DEPARTMENT(:cod_departamento)',
           {
               replacements: {
                   cod_departamento: parseInt(cod_departamento as string, 10),

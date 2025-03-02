@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, Navigate, useLocation } from 'react-router-dom';
-import { Grid, Box, Card, Stack, Typography, Snackbar, Alert } from '@mui/material';
+import { Navigate, useLocation } from 'react-router-dom';
+import { Grid, Box, Card, Typography, Snackbar, Alert } from '@mui/material';
 import { useAuth } from '../../actions/authContext';
 
-// components
 import PageContainer from 'src/components/container/PageContainer';
-import Logo from 'src/layouts/full/shared/logo/Logo';
 import AuthLogin from './auth/AuthLogin';
+
+// Importa el logo
+import MECLogo from 'src/assets/images/logos/MEC.png';
 
 const Login2 = () => {
   const { isAuthenticated } = useAuth();
@@ -61,13 +62,14 @@ const Login2 = () => {
           >
             <Card elevation={9} sx={{ p: 4, zIndex: 1, width: '100%', maxWidth: '500px' }}>
               <Box display="flex" alignItems="center" justifyContent="center">
-                <Logo />
+                {/* Reemplaza el componente <Logo /> con la imagen del logo */}
+                <img src={MECLogo} alt="MEC Logo" style={{ maxWidth: '150px', height: 'auto' }} />
               </Box>
               <AuthLogin
-                title="Welcome to Modernize"
+                title="Bienvenido"
                 subtext={
                   <Typography variant="subtitle1" textAlign="center" color="textSecondary" mb={1}>
-                    Your Social Campaigns
+                    Tu página de gestión de envíos
                   </Typography>
                 }
               />

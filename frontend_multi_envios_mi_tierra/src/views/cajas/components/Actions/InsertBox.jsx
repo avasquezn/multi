@@ -79,7 +79,6 @@ const InsertCaja = ({ show, handleClose, onBoxInserted }) => {
 
         try {
             const message = await insertBox(formData);
-            console.log('Caja insertada:', message);
 
             setSnackbarMessage('Caja agregada exitosamente');
             setSnackbarSeverity('success');

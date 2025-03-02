@@ -14,16 +14,29 @@ export const getClientes = async () => {
 export const getClientes_1 = async () => {
     try {
         const response = await api.get('/clientes');
-        console.log("Respuesta raw del servidor:", response); // Para debugging
         
         // Asegurarse de que response.data existe y es un array
         const clientes = Array.isArray(response.data) ? response.data : 
                         (response.data?.data ? response.data.data : []);
         
-        console.log("Clientes procesados:", clientes); // Para debugging
         return clientes;
     } catch (error) {
-        console.error('Error al obtener los clientes:', error);
+        console.error('Error al obtener los clientes:');
+        throw error;
+    }
+};
+
+export const getClientesEnvio = async () => {
+    try {
+        const response = await api.get('/clientes/cliente-envio');
+        
+        // Asegurarse de que response.data existe y es un array
+        const clientes = Array.isArray(response.data) ? response.data : 
+                        (response.data?.data ? response.data.data : []);
+        
+        return clientes;
+    } catch (error) {
+        console.error('Error al obtener los clientes:');
         throw error;
     }
 };

@@ -17,11 +17,11 @@ import {
     useTheme
 } from '@mui/material';
 import { useAuth } from '../../../../actions/authContext';
-import { insertCliente } from '../../../../services/ClientesService';
+import { insertDestinatario } from '../../../../services/DestinatariosService';
 import { getAllCountries, getCountriesWithDepartments, getCitiesByCountryAndDepartment } from '../../../../services/LocationService';
 import { getGenders_1 } from '../../../../services/GenderService';
 
-const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
+const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_cliente }) => {
     const theme = useTheme();
     const { user } = useAuth();
     const [formData, setFormData] = useState({
@@ -34,6 +34,7 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
         telefono: '',
         correo: '',
         direccion: '',
+        fk_cod_cliente: fk_cod_cliente,
         usr_creo: user?.nom_usuario || ''
     });
 
@@ -48,14 +49,15 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
     const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
     useEffect(() => {
-        if (user) {
+        if (user && fk_cod_cliente) {
             setFormData(prevData => ({
                 ...prevData,
-                usr_creo: user.nom_usuario
+                usr_creo: user.nom_usuario,
+                fk_cod_cliente: fk_cod_cliente
             }));
         }
         fetchInitialData();
-    }, [user]);
+    }, [user, fk_cod_cliente]);
 
     useEffect(() => {
         if (show) {
@@ -153,7 +155,8 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
             'fk_cod_municipio',
             'telefono',
             'correo',
-            'direccion'
+            'direccion',
+            'fk_cod_cliente'
         ];
 
         const missingFields = requiredFields.filter(field => !formData[field]);
@@ -166,16 +169,16 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
         setError(null);
 
         try {
-            const message = await insertCliente(formData);
-            setSnackbarMessage('Cliente agregado exitosamente');
+            const message = await insertDestinatario(formData);
+            setSnackbarMessage('Destinatario agregado exitosamente');
             setSnackbarSeverity('success');
             setOpenSnackbar(true);
 
-            onClienteInserted();
+            onDestinatarioInserted();
             handleCloseModal();
         } catch (err) {
-            setError(err.message || 'Error al agregar el cliente');
-            setSnackbarMessage(err.message || 'Error al agregar el cliente');
+            setError(err.message || 'Error al agregar el destinatario');
+            setSnackbarMessage(err.message || 'Error al agregar el destinatario');
             setSnackbarSeverity('error');
             setOpenSnackbar(true);
         } finally {
@@ -194,6 +197,7 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
             telefono: '',
             correo: '',
             direccion: '',
+            fk_cod_cliente,
             usr_creo: user?.nom_usuario || ''
         });
         setDepartments([]);
@@ -234,7 +238,7 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
                         color: theme.palette.primary.contrastText
                     }}
                 >
-                    Agregar Cliente
+                    Agregar Destinatario
                 </DialogTitle>
                 <Divider sx={{ borderColor: theme.palette.divider }} />
                 
@@ -249,6 +253,7 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
                             required 
                             fullWidth 
                         />
+
                         <TextField 
                             label="Nombre Completo" 
                             name="nom_persona" 
@@ -256,6 +261,15 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
                             onChange={handleChange} 
                             required 
                             fullWidth 
+                        />
+
+                        <TextField
+                            label="Código Cliente"
+                            name="fk_cod_cliente"
+                            value={formData.fk_cod_cliente}
+                            disabled
+                            fullWidth
+                            sx={{ display: 'none' }} 
                         />
 
                         <FormControl fullWidth required>
@@ -395,4 +409,4 @@ const InsertCliente = ({ show, handleClose, onClienteInserted }) => {
     );
 };
 
-export default InsertCliente;
+export default InsertDestinatario;

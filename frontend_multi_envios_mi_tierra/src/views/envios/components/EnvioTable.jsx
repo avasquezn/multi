@@ -13,13 +13,16 @@ import {
     Snackbar,
     Alert,
     Button,
-    useMediaQuery
+    useMediaQuery,
+    IconButton,
+    Tooltip
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import { getEnvios } from '../../../services/EnviosService'; // Servicio para obtener datos de envíos
+import { getEnvios } from '../../../services/EnviosService';
 import { useAuth } from '../../../actions/authContext';
-import InsertEnvio from './Actions/EnvioInsert'; // Modal para insertar envío
+import InsertEnvio from './Actions/EnvioInsert';
+import UpdateEnvio from './Actions/UpdateEnvio';
 
 const EnviosTable = () => {
     const theme = useTheme();
@@ -37,6 +40,8 @@ const EnviosTable = () => {
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('success');
     const [insertEnvioOpen, setInsertEnvioOpen] = useState(false);
+    const [updateEnvioOpen, setUpdateEnvioOpen] = useState(false);
+    const [selectedEnvio, setSelectedEnvio] = useState(null);
 
     useEffect(() => {
         fetchEnvios();
@@ -49,7 +54,7 @@ const EnviosTable = () => {
     const fetchEnvios = async () => {
         setLoading(true);
         try {
-            const data = await getEnvios(); // Llama al procedimiento almacenado `GET_DATOS_ENVIO`
+            const data = await getEnvios(); // Llama al procedimiento almacenado `GET_DATOS_ENVIO()`
             setEnvios(data);
             setFilteredEnvios(data);
         } catch (error) {
@@ -97,6 +102,38 @@ const EnviosTable = () => {
         setOpenSnackbar(true);
     };
 
+    const handleEdit = (envio) => {
+        setSelectedEnvio({
+            COD_ENVIO: envio.COD_ENVIO,
+            NUM_ENVIO: envio.NUM_ENVIO,
+            usr_modifico: user?.nom_usuario || ''
+        });
+        setUpdateEnvioOpen(true);
+    };
+
+    const handleCloseUpdateEnvio = () => {
+        setUpdateEnvioOpen(false);
+        setSelectedEnvio(null);
+    };
+
+    const handleEnvioUpdated = () => {
+        fetchEnvios();
+        setSnackbarMessage('Envío actualizado exitosamente.');
+        setSnackbarSeverity('success');
+        setOpenSnackbar(true);
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('es-ES', { 
+            year: 'numeric', 
+            month: '2-digit',
+            day: '2-digit'
+        });
+    };
+    
+
     const renderTable = () => (
         <TableContainer>
             <Table>
@@ -104,11 +141,15 @@ const EnviosTable = () => {
                     <TableRow sx={{ borderBottom: '2px solid #666' }}>
                         <TableCell># Envío</TableCell>
                         <TableCell>Cliente</TableCell>
-                        <TableCell>Persona</TableCell>
+                        <TableCell>Destinatario</TableCell>
                         <TableCell>País Origen</TableCell>
                         <TableCell>País Destino</TableCell>
+                        <TableCell>Departamento Destino</TableCell>
+                        <TableCell>Municipio Destino</TableCell>
                         <TableCell>Dirección</TableCell>
                         <TableCell>Cantidad Cajas</TableCell>
+                        <TableCell>Fecha Creación</TableCell>
+                        {rolPermission?.canUpdate === 1 && <TableCell>Acciones</TableCell>}
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -117,12 +158,24 @@ const EnviosTable = () => {
                         .map((envio) => (
                             <TableRow key={envio.COD_ENVIO}>
                                 <TableCell>{envio.NUM_ENVIO}</TableCell>
-                                <TableCell>{envio.COD_CLIENTE}</TableCell>
-                                <TableCell>{envio.NOM_PERSONA}</TableCell>
+                                <TableCell>{envio.NOMBRE_CLIENTE}</TableCell>
+                                <TableCell>{envio.NOMBRE_DESTINATARIO}</TableCell>
                                 <TableCell>{envio.PAIS_ORIGEN}</TableCell>
                                 <TableCell>{envio.PAIS_DESTINO}</TableCell>
+                                <TableCell>{envio.NOM_MUNICIPIO}</TableCell>
+                                <TableCell>{envio.NOM_DEPARTAMENTO}</TableCell>
                                 <TableCell>{envio.DIRECCION}</TableCell>
                                 <TableCell>{envio.CANTIDAD_CAJAS}</TableCell>
+                                <TableCell>{formatDate(envio.FEC_CREACION)}</TableCell>
+                                {rolPermission?.canUpdate === 1 && (
+                                    <TableCell>
+                                        <Tooltip title="Editar">
+                                            <IconButton color="primary" onClick={() => handleEdit(envio)}>
+                                                <i className="bi bi-pencil-square" />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </TableCell>
+                                )}
                             </TableRow>
                         ))}
                 </TableBody>
@@ -168,18 +221,10 @@ const EnviosTable = () => {
 
             {loading ? <div>Cargando...</div> : renderTable()}
 
-            <InsertEnvio
-                show={insertEnvioOpen}
-                handleClose={handleCloseInsertEnvio}
-                onEnvioInserted={handleEnvioInserted}
-            />
+            <InsertEnvio show={insertEnvioOpen} handleClose={handleCloseInsertEnvio} onEnvioInserted={handleEnvioInserted} />
+            <UpdateEnvio show={updateEnvioOpen} handleClose={handleCloseUpdateEnvio} onEnvioUpdated={handleEnvioUpdated} initialEnvioData={selectedEnvio} />
 
-            <Snackbar
-                open={openSnackbar}
-                autoHideDuration={6000}
-                onClose={handleCloseSnackbar}
-                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            >
+            <Snackbar open={openSnackbar} autoHideDuration={6000} onClose={handleCloseSnackbar} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
                 <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity}>
                     {snackbarMessage}
                 </Alert>

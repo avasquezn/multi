@@ -62,7 +62,6 @@ const InsertDiscountType = ({ show, handleClose, onDiscountInserted }) => {
 
         try {
             const message = await insertDiscountType(formData);
-            console.log('Tipo de descuento insertado:', message);
 
             setSnackbarMessage('Tipo de descuento agregado exitosamente');
             setSnackbarSeverity('success');

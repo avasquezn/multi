@@ -78,7 +78,6 @@ const InsertDiscount = ({ show, handleClose, onDiscountInserted }) => {
 
         try {
             const response = await insertDiscount(formData);
-            console.log('Descuento insertado:', response);
 
             setSnackbarMessage('Descuento agregado exitosamente');
             setSnackbarSeverity('success');

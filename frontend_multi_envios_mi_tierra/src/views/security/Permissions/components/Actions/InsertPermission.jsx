@@ -49,9 +49,8 @@ const InsertPermission = ({ show, handleClose, onPermissionInserted }) => {
         try {
             const rolesData = await getRoles();
             setRoles(rolesData);
-            console.log("Roles fetched:", rolesData);
         } catch (error) {
-            console.error('Error fetching roles:', error);
+            console.error('Error fetching roles:');
             setSnackbarMessage('Error al cargar los roles');
             setSnackbarSeverity('error');
             setOpenSnackbar(true);
@@ -65,7 +64,7 @@ const InsertPermission = ({ show, handleClose, onPermissionInserted }) => {
             const objectsData = await getObjects();
             setObjects(objectsData);
         } catch (error) {
-            console.error('Error fetching objects:', error);
+            console.error('Error fetching objects:');
             setSnackbarMessage('Error al cargar los objetos');
             setSnackbarSeverity('error');
             setOpenSnackbar(true);

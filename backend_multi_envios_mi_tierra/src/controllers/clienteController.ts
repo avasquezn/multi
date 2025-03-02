@@ -102,6 +102,26 @@ export const getClientes = async (req: Request, res: Response): Promise<Response
     }
 };
 
+export const getClientesEnvio = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const clientes = await sequelize.query('CALL GET_CLIENTES_ENVIO()', {
+            type: QueryTypes.RAW,
+        });
+
+        return res.status(200).json({
+            data: clientes,
+            success: true
+        });
+    } catch (error) {
+        console.error('Error al obtener los clientes:', error);
+        return res.status(500).json({
+            message: 'Error al obtener los clientes y sus datos relacionados',
+            success: false,
+            error: error
+        });
+    }
+};
+
 export const updateCliente = async (req: Request, res: Response): Promise<Response> => {
     const {
         cod_persona,

@@ -14,6 +14,8 @@ import descuentosRoutes from './routes/descuentosRoutes';
 import clientesRoutes from './routes/clientesRoutes';
 import datosRoutes from './routes/datosEnvioRoutes';
 import paqueteRoute from './routes/paqueteRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
+import destinatariosRoutes from './routes/destinatariosRoutes';
 
 const app = express();
 
@@ -37,5 +39,7 @@ app.use('/api/descuentos', descuentosRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/datos-envio', datosRoutes);
 app.use('/api/paquetes', paqueteRoute);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/destinatarios', destinatariosRoutes);
 
 export default app;

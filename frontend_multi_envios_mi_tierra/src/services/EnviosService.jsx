@@ -20,3 +20,14 @@ export const insertEnvio = async (envioData) => {
         throw new Error(errorMessage);
     }
 };
+
+export const updateNumEnvio = async (envioData) => {
+    try {
+        const response = await api.put('/datos-envio/update-num-envio', envioData);
+        return response.data?.message || 'Número de envío actualizado correctamente';
+    } catch (error) {
+        const errorMessage = error.response?.data?.message || 'Error al actualizar el número de envío';
+        console.error('Error al actualizar el número de envío:', errorMessage);
+        throw new Error(errorMessage);
+    }
+};

@@ -5,6 +5,7 @@ import { QueryTypes } from 'sequelize';
 export const insertDatosEnvio = async (req: Request, res: Response): Promise<Response> => {
     const {
         fk_cod_cliente,
+        fk_cod_destinatario,
         cantidad_cajas,
         fk_cod_pais_origen,
         fk_cod_pais_destino,
@@ -18,12 +19,13 @@ export const insertDatosEnvio = async (req: Request, res: Response): Promise<Res
 
     try {
         const result = await sequelize.query(
-            'CALL INS_DATOS_ENVIO(:p_fk_cod_cliente, :p_cantidad_cajas, :p_fk_cod_pais_origen, ' +
+            'CALL INS_DATOS_ENVIO(:p_fk_cod_cliente, :p_fk_cod_destinatario, :p_cantidad_cajas, :p_fk_cod_pais_origen, ' +
             ':p_fk_cod_pais_destino, :p_fk_cod_departamento, :p_fk_cod_municipio, ' +
             ':p_fk_cod_direccion, :p_fk_cod_persona, :p_num_envio, :p_usr_creo);',
             {
                 replacements: {
                     p_fk_cod_cliente: fk_cod_cliente,
+                    p_fk_cod_destinatario: fk_cod_destinatario,
                     p_cantidad_cajas: cantidad_cajas,
                     p_fk_cod_pais_origen: fk_cod_pais_origen,
                     p_fk_cod_pais_destino: fk_cod_pais_destino,
@@ -65,5 +67,37 @@ export const getDatosEnvio = async (req: Request, res: Response): Promise<Respon
     } catch (error: any) {
         console.error('Error al obtener los datos de envío:', error);
         return res.status(500).json({ error: error.original?.sqlMessage || error.message });
+    }
+};
+
+export const updateNumEnvio = async (req: Request, res: Response): Promise<Response> => {
+    const { cod_envio, num_envio, usr_modifico } = req.body;
+
+    try {
+        const result = await sequelize.query(
+            'CALL UPD_DATOS_ENVIO_NUM_ENVIO(:p_cod_envio, :p_num_envio, :p_usr_modifico);',
+            {
+                replacements: {
+                    p_cod_envio: cod_envio,
+                    p_num_envio: num_envio,
+                    p_usr_modifico: usr_modifico
+                },
+                type: QueryTypes.RAW
+            }
+        );
+
+        return res.status(200).json({
+            message: (result as any)[0]?.Mensaje || 'Número de envío actualizado correctamente',
+            success: true
+        });
+
+    } catch (error: any) {
+        const errorMessage = error.original?.sqlMessage || error.message;
+        console.error('Error al actualizar el número de envío:', error);
+        return res.status(500).json({
+            message: 'Ocurrió un error al actualizar el número de envío.',
+            error: errorMessage,
+            success: false
+        });
     }
 };

@@ -163,7 +163,6 @@ const InsertUser = ({ show, handleClose, onUserInserted }) => {
 
         try {
             const message = await insertUser(formData);
-            console.log('Usuario insertado:', message);
 
             setSnackbarMessage('Usuario agregado exitosamente');
             setSnackbarSeverity('success');
@@ -173,7 +172,7 @@ const InsertUser = ({ show, handleClose, onUserInserted }) => {
             handleCloseModal();
         } catch (err) {
             setError(err.message);
-            console.error('Error al insertar el usuario:', err);
+            console.error('Error al insertar el usuario:');
 
             setError(err.message || 'Error al agregar el usuario');
         } finally {
