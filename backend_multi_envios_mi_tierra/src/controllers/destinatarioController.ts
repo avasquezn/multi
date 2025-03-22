@@ -2,9 +2,6 @@ import { Request, Response } from 'express';
 import sequelize from '../config/database/index';
 import { QueryTypes } from 'sequelize';
 
-/**
- * Insertar un destinatario.
- */
 export const insertDestinatario = async (req: Request, res: Response): Promise<Response> => {
     const {
         id_persona,
@@ -13,7 +10,9 @@ export const insertDestinatario = async (req: Request, res: Response): Promise<R
         fk_cod_pais,
         fk_cod_departamento,
         fk_cod_municipio,
-        telefono,
+        telefono1,
+        telefono2,
+        telefono3,
         correo,
         direccion,
         fk_cod_cliente,
@@ -24,7 +23,7 @@ export const insertDestinatario = async (req: Request, res: Response): Promise<R
         const result = await sequelize.query(
             'CALL INS_DESTINATARIO(:p_id_persona, :p_nom_persona, :p_fk_cod_genero, ' +
             ':p_fk_cod_pais, :p_fk_cod_departamento, :p_fk_cod_municipio, ' +
-            ':p_telefono, :p_correo, :p_direccion, :p_fk_cod_cliente, :p_usr_creo);',
+            ':p_telefono1, :p_telefono2, :p_telefono3, :p_correo, :p_direccion, :p_fk_cod_cliente, :p_usr_creo);',
             {
                 replacements: {
                     p_id_persona: id_persona,
@@ -33,7 +32,9 @@ export const insertDestinatario = async (req: Request, res: Response): Promise<R
                     p_fk_cod_pais: fk_cod_pais,
                     p_fk_cod_departamento: fk_cod_departamento,
                     p_fk_cod_municipio: fk_cod_municipio,
-                    p_telefono: telefono,
+                    p_telefono1: telefono1,
+                    p_telefono2: telefono2, // Opcional: se puede enviar vacío o null
+                    p_telefono3: telefono3, // Opcional: se puede enviar vacío o null
                     p_correo: correo,
                     p_direccion: direccion,
                     p_fk_cod_cliente: fk_cod_cliente,

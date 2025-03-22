@@ -31,12 +31,18 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
         fk_cod_pais: '',
         fk_cod_departamento: '',
         fk_cod_municipio: '',
-        telefono: '',
+        telefono1: '',  // Campo principal (obligatorio)
+        telefono2: '',
+        telefono3: '',
         correo: '',
         direccion: '',
         fk_cod_cliente: fk_cod_cliente,
         usr_creo: user?.nom_usuario || ''
     });
+
+    // Estados para mostrar teléfonos opcionales
+    const [showTelefono2, setShowTelefono2] = useState(false);
+    const [showTelefono3, setShowTelefono3] = useState(false);
 
     const [countries, setCountries] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -142,24 +148,49 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
         }
     };
 
+    // Función para agregar teléfonos opcionales
+    const handleAddTelefono = () => {
+        if (!showTelefono2) {
+            setShowTelefono2(true);
+        } else if (!showTelefono3) {
+            setShowTelefono3(true);
+        }
+    };
+
+    // Funciones para remover teléfonos opcionales
+    const handleRemoveTelefono2 = () => {
+        setShowTelefono2(false);
+        setFormData(prev => ({ ...prev, telefono2: '' }));
+    };
+
+    const handleRemoveTelefono3 = () => {
+        setShowTelefono3(false);
+        setFormData(prev => ({ ...prev, telefono3: '' }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validación de campos requeridos
+        // Si id_persona está vacío, se asigna el valor por defecto
+        let dataToSend = { ...formData };
+        if (!dataToSend.id_persona.trim()) {
+            dataToSend.id_persona = '0000-0000-0000';
+        }
+
+        // Validación de campos requeridos (se quitó id_persona de requerido)
         const requiredFields = [
-            'id_persona',
             'nom_persona',
             'fk_cod_genero',
             'fk_cod_pais',
             'fk_cod_departamento',
             'fk_cod_municipio',
-            'telefono',
+            'telefono1',
             'correo',
             'direccion',
             'fk_cod_cliente'
         ];
 
-        const missingFields = requiredFields.filter(field => !formData[field]);
+        const missingFields = requiredFields.filter(field => !dataToSend[field]);
         if (missingFields.length > 0) {
             setError('Por favor completa todos los campos obligatorios');
             return;
@@ -169,7 +200,7 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
         setError(null);
 
         try {
-            const message = await insertDestinatario(formData);
+            const message = await insertDestinatario(dataToSend);
             setSnackbarMessage('Destinatario agregado exitosamente');
             setSnackbarSeverity('success');
             setOpenSnackbar(true);
@@ -194,14 +225,18 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
             fk_cod_pais: '',
             fk_cod_departamento: '',
             fk_cod_municipio: '',
-            telefono: '',
+            telefono1: '',
+            telefono2: '',
+            telefono3: '',
             correo: '',
             direccion: '',
-            fk_cod_cliente,
+            fk_cod_cliente: fk_cod_cliente,
             usr_creo: user?.nom_usuario || ''
         });
         setDepartments([]);
         setCities([]);
+        setShowTelefono2(false);
+        setShowTelefono3(false);
         setError(null);
         handleClose();
     };
@@ -250,10 +285,8 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
                             name="id_persona" 
                             value={formData.id_persona} 
                             onChange={handleChange} 
-                            required 
                             fullWidth 
                         />
-
                         <TextField 
                             label="Nombre Completo" 
                             name="nom_persona" 
@@ -262,7 +295,6 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
                             required 
                             fullWidth 
                         />
-
                         <TextField
                             label="Código Cliente"
                             name="fk_cod_cliente"
@@ -271,7 +303,6 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
                             fullWidth
                             sx={{ display: 'none' }} 
                         />
-
                         <FormControl fullWidth required>
                             <InputLabel>Género</InputLabel>
                             <Select
@@ -338,14 +369,44 @@ const InsertDestinatario = ({ show, handleClose, onDestinatarioInserted, fk_cod_
                         </FormControl>
 
                         {/* Datos de contacto */}
-                        <TextField 
-                            label="Teléfono" 
-                            name="telefono" 
-                            value={formData.telefono} 
-                            onChange={handleChange} 
-                            required 
-                            fullWidth 
-                        />
+                        <Box display="flex" alignItems="center" gap={1}>
+                            <TextField 
+                                label="Teléfono" 
+                                name="telefono1" 
+                                value={formData.telefono1} 
+                                onChange={handleChange} 
+                                required 
+                                fullWidth 
+                            />
+                            {/* Botón para agregar teléfonos opcionales */}
+                            {( !showTelefono2 || !showTelefono3 ) && (
+                                <Button variant="outlined" onClick={handleAddTelefono}>+</Button>
+                            )}
+                        </Box>
+                        {showTelefono2 && (
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <TextField 
+                                    label="Teléfono opcional 1" 
+                                    name="telefono2" 
+                                    value={formData.telefono2} 
+                                    onChange={handleChange} 
+                                    fullWidth 
+                                />
+                                <Button variant="outlined" onClick={handleRemoveTelefono2} color="error">-</Button>
+                            </Box>
+                        )}
+                        {showTelefono3 && (
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <TextField 
+                                    label="Teléfono opcional 2" 
+                                    name="telefono3" 
+                                    value={formData.telefono3} 
+                                    onChange={handleChange} 
+                                    fullWidth 
+                                />
+                                <Button variant="outlined" onClick={handleRemoveTelefono3} color="error">-</Button>
+                            </Box>
+                        )}
                         <TextField 
                             label="Correo Electrónico" 
                             name="correo" 

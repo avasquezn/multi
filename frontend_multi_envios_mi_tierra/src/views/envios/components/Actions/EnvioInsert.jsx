@@ -140,6 +140,8 @@ const InsertEnvio = ({ show, handleClose, onEnvioInserted }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        console.log('Datos enviados:', formData);
+
         if (
             !formData.cantidad_cajas ||
             !formData.fk_cod_pais_origen ||

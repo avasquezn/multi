@@ -12,6 +12,7 @@ import YearlyBreakup from './components/YearlyBreakup';
 import RecentTransactions from './components/RecentTransactions';
 import ProductPerformance from './components/ProductPerformance';
 import MonthlyEarnings from './components/MonthlyEarnings';
+import Depositos from './components/Depositos';
 
 const Dashboard = () => {
   const [showInsertClienteModal, setShowInsertClienteModal] = useState(false);
@@ -86,6 +87,9 @@ const Dashboard = () => {
                     <MonthlyEarnings />
                   </Grid>
                 </Grid>
+              </Grid>
+              <Grid item xs={12}>
+                <Depositos />
               </Grid>
             </>
           )}

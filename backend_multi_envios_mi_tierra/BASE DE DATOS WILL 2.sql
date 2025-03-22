@@ -350,6 +350,7 @@ CREATE TABLE TBL_PAQUETE (
     FK_COD_CLIENTE BIGINT NOT NULL,
     FK_COD_ENVIO BIGINT NOT NULL,
     FK_COD_DESCUENTO BIGINT DEFAULT NULL,
+    DEPOSITO DECIMAL(12,2) DEFAULT NULL,
     FEC_ENTREGA DATE DEFAULT NULL,
 	USR_CREO VARCHAR(50) NOT NULL,
     FEC_CREACION DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -2107,8 +2108,10 @@ CREATE PROCEDURE INS_CLIENTE(
     IN p_fk_cod_pais BIGINT,
     IN p_fk_cod_departamento BIGINT,
     IN p_fk_cod_municipio BIGINT,
-    -- Datos de contacto
-    IN p_telefono VARCHAR(15),
+    -- Datos de contacto (teléfonos)
+    IN p_telefono1 VARCHAR(15),
+    IN p_telefono2 VARCHAR(15),
+    IN p_telefono3 VARCHAR(15),
     IN p_correo VARCHAR(50),
     -- Datos de dirección
     IN p_direccion VARCHAR(255),
@@ -2149,16 +2152,44 @@ BEGIN
     -- Obtener el código de persona generado
     SET v_cod_persona = LAST_INSERT_ID();
     
-    -- Insertar teléfono
-    INSERT INTO TBL_TELEFONOS (
-        FK_COD_PERSONA,
-        TELEFONO,
-        USR_CREO
-    ) VALUES (
-        v_cod_persona,
-        p_telefono,
-        p_usr_creo
-    );
+    -- Insertar teléfono 1 (obligatorio o el primer valor)
+    IF p_telefono1 IS NOT NULL AND p_telefono1 <> '' THEN
+        INSERT INTO TBL_TELEFONOS (
+            FK_COD_PERSONA,
+            TELEFONO,
+            USR_CREO
+        ) VALUES (
+            v_cod_persona,
+            p_telefono1,
+            p_usr_creo
+        );
+    END IF;
+    
+    -- Insertar teléfono 2 (opcional)
+    IF p_telefono2 IS NOT NULL AND p_telefono2 <> '' THEN
+        INSERT INTO TBL_TELEFONOS (
+            FK_COD_PERSONA,
+            TELEFONO,
+            USR_CREO
+        ) VALUES (
+            v_cod_persona,
+            p_telefono2,
+            p_usr_creo
+        );
+    END IF;
+    
+    -- Insertar teléfono 3 (opcional)
+    IF p_telefono3 IS NOT NULL AND p_telefono3 <> '' THEN
+        INSERT INTO TBL_TELEFONOS (
+            FK_COD_PERSONA,
+            TELEFONO,
+            USR_CREO
+        ) VALUES (
+            v_cod_persona,
+            p_telefono3,
+            p_usr_creo
+        );
+    END IF;
     
     -- Insertar correo
     INSERT INTO TBL_CORREOS (
@@ -2204,48 +2235,35 @@ DELIMITER $$
 
 CREATE PROCEDURE GET_CLIENTES()
 BEGIN
-    SELECT 
-        -- Datos del cliente
-        cl.COD_CLIENTE,
-        -- Datos de la persona
-        p.COD_PERSONA,
-        p.ID_PERSONA,
-        p.NOM_PERSONA,
-        -- Datos del género
-        g.COD_GENERO,
-        g.GENERO,
-        -- Datos de ubicación
-        pa.COD_PAIS,
-        pa.NOM_PAIS,
-        pa.NUM_ZONA,
-        dep.COD_DEPARTAMENTO,
-        dep.NOM_DEPARTAMENTO,
-        mun.COD_MUNICIPIO,
-        mun.NOM_MUNICIPIO,
-        mun.ID_POSTAL,
-        -- Datos de dirección
-        d.COD_DIRECCION,
-        d.DIRECCION,
-        -- Datos de contacto
-        t.TELEFONO,
-        c.CORREO
-    FROM TBL_OP_CLIENTES cl
-    -- Join con persona
-    INNER JOIN TBL_PERSONAS p ON cl.FK_COD_PERSONA = p.COD_PERSONA
-    -- Join con género
-    INNER JOIN TBL_GENEROS g ON p.FK_COD_GENERO = g.COD_GENERO
-    -- Joins con ubicación
-    INNER JOIN TBL_PAISES pa ON p.FK_COD_PAIS = pa.COD_PAIS
-    INNER JOIN TBL_DEPARTAMENTOS dep ON p.FK_COD_DEPARTAMENTO = dep.COD_DEPARTAMENTO
-    INNER JOIN TBL_MUNICIPIOS mun ON p.FK_COD_MUNICIPIO = mun.COD_MUNICIPIO
-    -- Join con dirección
-    LEFT JOIN TBL_DIRECCIONES d ON p.COD_PERSONA = d.FK_COD_PERSONA
-    -- Join con teléfono
-    LEFT JOIN TBL_TELEFONOS t ON p.COD_PERSONA = t.FK_COD_PERSONA
-    -- Join con correo
-    LEFT JOIN TBL_CORREOS c ON p.COD_PERSONA = c.FK_COD_PERSONA
-    -- Ordenar por código de cliente
-    ORDER BY cl.COD_CLIENTE DESC;
+  SELECT 
+    cl.COD_CLIENTE,
+    ANY_VALUE(p.ID_PERSONA) AS ID_PERSONA,
+	ANY_VALUE(p.COD_PERSONA) AS COD_PERSONA,
+    ANY_VALUE(p.NOM_PERSONA) AS NOM_PERSONA,
+    GROUP_CONCAT(DISTINCT t.TELEFONO) AS TELEFONOS,
+    ANY_VALUE(c.CORREO) AS CORREO,
+    ANY_VALUE(pa.COD_PAIS) AS COD_PAIS,
+    ANY_VALUE(pa.NOM_PAIS) AS NOM_PAIS,
+    ANY_VALUE(pa.NUM_ZONA) AS NUM_ZONA,
+    ANY_VALUE(dep.COD_DEPARTAMENTO) AS COD_DEPARTAMENTO,
+    ANY_VALUE(dep.NOM_DEPARTAMENTO) AS NOM_DEPARTAMENTO,
+    ANY_VALUE(mun.COD_MUNICIPIO) AS COD_MUNICIPIO,
+    ANY_VALUE(mun.NOM_MUNICIPIO) AS NOM_MUNICIPIO,
+    ANY_VALUE(d.COD_DIRECCION) AS COD_DIRECCION,
+    ANY_VALUE(d.DIRECCION) AS DIRECCION,
+	ANY_VALUE(g.COD_GENERO) AS COD_GENERO,
+	ANY_VALUE(g.GENERO) AS GENERO
+  FROM TBL_OP_CLIENTES cl
+  INNER JOIN TBL_PERSONAS p ON cl.FK_COD_PERSONA = p.COD_PERSONA
+  LEFT JOIN TBL_TELEFONOS t ON p.COD_PERSONA = t.FK_COD_PERSONA
+  LEFT JOIN TBL_CORREOS c ON p.COD_PERSONA = c.FK_COD_PERSONA
+  INNER JOIN TBL_GENEROS g ON p.FK_COD_GENERO = g.COD_GENERO
+  INNER JOIN TBL_PAISES pa ON p.FK_COD_PAIS = pa.COD_PAIS
+  INNER JOIN TBL_DEPARTAMENTOS dep ON p.FK_COD_DEPARTAMENTO = dep.COD_DEPARTAMENTO
+  INNER JOIN TBL_MUNICIPIOS mun ON p.FK_COD_MUNICIPIO = mun.COD_MUNICIPIO
+  LEFT JOIN TBL_DIRECCIONES d ON p.COD_PERSONA = d.FK_COD_PERSONA
+  GROUP BY cl.COD_CLIENTE
+  ORDER BY cl.COD_CLIENTE DESC;
 END$$
 
 DELIMITER ;
@@ -2372,7 +2390,7 @@ CREATE PROCEDURE INS_DATOS_ENVIO(
     IN p_usr_creo VARCHAR(50)
 )
 BEGIN
-    DECLARE v_cod_envio BIGINT;
+    DECLARE v_counter INT DEFAULT 1;
     
     -- Manejador de errores
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -2383,39 +2401,38 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Insertar datos de envío
-    INSERT INTO TBL_DATOS_ENVIO (
-        FK_COD_CLIENTE,
-        FK_COD_DESTINATARIO,
-        CANTIDAD_CAJAS,
-        FK_COD_PAIS_ORIGEN,
-        FK_COD_PAIS_DESTINO,
-        FK_COD_DEPARTAMENTO,
-        FK_COD_MUNICIPIO,
-        FK_COD_DIRECCION,
-        FK_COD_PERSONA,
-        NUM_ENVIO,
-        USR_CREO
-    ) VALUES (
-        p_fk_cod_cliente,
-        p_fk_cod_destinatario,
-        p_cantidad_cajas,
-        p_fk_cod_pais_origen,
-        p_fk_cod_pais_destino,
-        p_fk_cod_departamento,
-        p_fk_cod_municipio,
-        p_fk_cod_direccion,
-        p_fk_cod_persona,
-        p_num_envio,
-        p_usr_creo
-    );
-
-    -- Obtener el código de envío generado
-    SET v_cod_envio = LAST_INSERT_ID();
+    WHILE v_counter <= p_cantidad_cajas DO
+        INSERT INTO TBL_DATOS_ENVIO (
+            FK_COD_CLIENTE,
+            FK_COD_DESTINATARIO,
+            CANTIDAD_CAJAS,  -- siempre se inserta 1 en esta columna
+            FK_COD_PAIS_ORIGEN,
+            FK_COD_PAIS_DESTINO,
+            FK_COD_DEPARTAMENTO,
+            FK_COD_MUNICIPIO,
+            FK_COD_DIRECCION,
+            FK_COD_PERSONA,
+            NUM_ENVIO,
+            USR_CREO
+        ) VALUES (
+            p_fk_cod_cliente,
+            p_fk_cod_destinatario,
+            1,
+            p_fk_cod_pais_origen,
+            p_fk_cod_pais_destino,
+            p_fk_cod_departamento,
+            p_fk_cod_municipio,
+            p_fk_cod_direccion,
+            p_fk_cod_persona,
+            p_num_envio,
+            p_usr_creo
+        );
+        SET v_counter = v_counter + 1;
+    END WHILE;
 
     COMMIT;
 
-    SELECT 'Datos de envío creados exitosamente', v_cod_envio AS CodigoEnvio;
+    SELECT 'Datos de envío creados exitosamente' AS Mensaje, LAST_INSERT_ID() AS CodigoEnvio;
 END$$
 
 DELIMITER ;
@@ -2468,7 +2485,10 @@ BEGIN
     LEFT JOIN TBL_PAISES p ON dp.FK_COD_PAIS = p.COD_PAIS -- País destino del destinatario
 
     -- País de origen del envío
-    INNER JOIN TBL_PAISES po ON de.FK_COD_PAIS_ORIGEN = po.COD_PAIS;
+    INNER JOIN TBL_PAISES po ON de.FK_COD_PAIS_ORIGEN = po.COD_PAIS
+
+    -- Ordena los resultados del último agregado al primero
+    ORDER BY de.FEC_CREACION DESC;
 END$$
 
 DELIMITER ;
@@ -2488,6 +2508,8 @@ BEGIN
     DECLARE v_fk_cod_descuento BIGINT;
     DECLARE v_indice INT DEFAULT 0;
     DECLARE v_total INT;
+    DECLARE v_total_deposito DECIMAL(12,2);
+    DECLARE v_valor_deposito_paquete DECIMAL(12,2);
 
     -- Manejador de errores
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -2500,6 +2522,16 @@ BEGIN
 
     -- Obtener el número de elementos en el JSON
     SET v_total = JSON_LENGTH(p_datos_paquetes);
+
+    -- Obtener el total del depósito del primer elemento del arreglo
+    SET v_total_deposito = JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, '$[0].deposito'));
+
+    -- Validar si el depósito es nulo o 'null'
+    IF v_total_deposito IS NULL OR v_total_deposito = 'null' THEN
+        SET v_valor_deposito_paquete = NULL;
+    ELSE
+        SET v_valor_deposito_paquete = CAST(v_total_deposito AS DECIMAL(12,2)) / v_total;
+    END IF;
 
     -- Iterar sobre cada paquete en el JSON
     WHILE v_indice < v_total DO
@@ -2521,13 +2553,14 @@ BEGIN
             ELSE JSON_UNQUOTE(JSON_EXTRACT(p_datos_paquetes, CONCAT('$[', v_indice, '].fec_entrega')))
         END;
 
-        -- Insertar datos del paquete con el nuevo campo de descuento
+        -- Insertar datos del paquete incluyendo el campo DEPOSITO
         INSERT INTO TBL_PAQUETE (
             FK_COD_CAJA,
             FK_COD_CLIENTE,
             FK_COD_ENVIO,
             FK_COD_DESCUENTO,
             FEC_ENTREGA,
+            DEPOSITO,
             USR_CREO
         ) VALUES (
             v_fk_cod_caja,
@@ -2535,6 +2568,7 @@ BEGIN
             v_fk_cod_envio,
             v_fk_cod_descuento,
             v_fec_entrega,
+            v_valor_deposito_paquete,
             v_usr_creo
         );
 
@@ -2565,9 +2599,12 @@ BEGIN
         p.COD_PAQUETE,
         c.ID_CAJA,
         p.ESTADO,
+        p.DEPOSITO,
         p.FK_COD_CLIENTE,
         cl.FK_COD_PERSONA,
         pe.NOM_PERSONA,
+        pais.NOM_PAIS AS PAIS_PERSONA,
+        g.GENERO AS GENERO_PERSONA,
         p.FK_COD_ENVIO,
         e.NUM_ENVIO,
         p.FEC_ENTREGA,
@@ -2575,7 +2612,7 @@ BEGIN
         td.ES_PORCENTAJE,
         pr.PRECIO AS PRECIO_ORIGINAL,  -- Se obtiene desde TBL_PRECIOS
         CASE 
-            WHEN td.ES_PORCENTAJE = 1 THEN ROUND(pr.PRECIO - (pr.PRECIO * d.CANTIDAD / 100), 2) -- Aplica ROUND con 4 decimales
+            WHEN td.ES_PORCENTAJE = 1 THEN ROUND(pr.PRECIO - (pr.PRECIO * d.CANTIDAD / 100), 2)
             WHEN td.ES_PORCENTAJE = 0 THEN pr.PRECIO - d.CANTIDAD
             ELSE pr.PRECIO
         END AS PRECIO_FINAL
@@ -2584,18 +2621,21 @@ BEGIN
     INNER JOIN 
         TBL_CAJAS c ON p.FK_COD_CAJA = c.COD_CAJA
     INNER JOIN 
-        TBL_PRECIOS pr ON c.FK_COD_PRECIO = pr.COD_PRECIO  -- Se une para obtener el PRECIO correcto
+        TBL_PRECIOS pr ON c.FK_COD_PRECIO = pr.COD_PRECIO  -- Se une para obtener el precio correcto
     INNER JOIN 
         TBL_OP_CLIENTES cl ON p.FK_COD_CLIENTE = cl.COD_CLIENTE
     INNER JOIN 
         TBL_PERSONAS pe ON cl.FK_COD_PERSONA = pe.COD_PERSONA
+    INNER JOIN 
+        TBL_PAISES pais ON pe.FK_COD_PAIS = pais.COD_PAIS   -- Trae el país de la persona
+    INNER JOIN 
+        TBL_GENEROS g ON pe.FK_COD_GENERO = g.COD_GENERO    -- Trae el género de la persona
     INNER JOIN 
         TBL_DATOS_ENVIO e ON p.FK_COD_ENVIO = e.COD_ENVIO
     LEFT JOIN 
         TBL_DESCUENTOS d ON p.FK_COD_DESCUENTO = d.COD_DESCUENTO
     LEFT JOIN 
         TBL_TIPO_DESCUENTOS td ON d.FK_COD_TIPO_DESCUENTO = td.COD_TIPO_DESCUENTO;  
-
 END$$
 
 DELIMITER ;
@@ -2639,17 +2679,21 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Obtener los envíos del cliente especificado con su cantidad de cajas y el nombre del destinatario
+    -- Obtener los envíos del cliente especificado con su cantidad de cajas, 
+    -- el nombre del destinatario y el país del destinatario
     SELECT 
         e.COD_ENVIO AS CodigoEnvio,
         e.CANTIDAD_CAJAS AS CantidadCajas,
-        p.NOM_PERSONA AS NombreDestinatario
+        p.NOM_PERSONA AS NombreDestinatario,
+        pa.NOM_PAIS AS PaisDestinatario
     FROM 
         TBL_DATOS_ENVIO e
     LEFT JOIN 
         TBL_DESTINATARIOS d ON e.FK_COD_DESTINATARIO = d.COD_DESTINATARIO
     LEFT JOIN 
         TBL_PERSONAS p ON d.FK_COD_PERSONA = p.COD_PERSONA
+    LEFT JOIN 
+        TBL_PAISES pa ON p.FK_COD_PAIS = pa.COD_PAIS
     WHERE 
         e.FK_COD_CLIENTE = p_fk_cod_cliente 
         AND e.IND_ESTADO = 0;
@@ -2854,7 +2898,7 @@ DELIMITER ;
 DELIMITER $$
 
 CREATE PROCEDURE INS_DESTINATARIO(
-    -- Datos de persona
+    -- Datos de persona (destinatario)
     IN p_id_persona VARCHAR(30),
     IN p_nom_persona VARCHAR(250),
     IN p_fk_cod_genero BIGINT,
@@ -2862,8 +2906,10 @@ CREATE PROCEDURE INS_DESTINATARIO(
     IN p_fk_cod_pais BIGINT,
     IN p_fk_cod_departamento BIGINT,
     IN p_fk_cod_municipio BIGINT,
-    -- Datos de contacto
-    IN p_telefono VARCHAR(15),
+    -- Datos de contacto (teléfonos)
+    IN p_telefono1 VARCHAR(15),
+    IN p_telefono2 VARCHAR(15),
+    IN p_telefono3 VARCHAR(15),
     IN p_correo VARCHAR(50),
     -- Datos de dirección
     IN p_direccion VARCHAR(255),
@@ -2906,16 +2952,44 @@ BEGIN
     -- Obtener el código de persona generado
     SET v_cod_persona = LAST_INSERT_ID();
 
-    -- Insertar teléfono
-    INSERT INTO TBL_TELEFONOS (
-        FK_COD_PERSONA,
-        TELEFONO,
-        USR_CREO
-    ) VALUES (
-        v_cod_persona,
-        p_telefono,
-        p_usr_creo
-    );
+    -- Insertar teléfono 1 (obligatorio)
+    IF p_telefono1 IS NOT NULL AND p_telefono1 <> '' THEN
+        INSERT INTO TBL_TELEFONOS (
+            FK_COD_PERSONA,
+            TELEFONO,
+            USR_CREO
+        ) VALUES (
+            v_cod_persona,
+            p_telefono1,
+            p_usr_creo
+        );
+    END IF;
+
+    -- Insertar teléfono 2 (opcional)
+    IF p_telefono2 IS NOT NULL AND p_telefono2 <> '' THEN
+        INSERT INTO TBL_TELEFONOS (
+            FK_COD_PERSONA,
+            TELEFONO,
+            USR_CREO
+        ) VALUES (
+            v_cod_persona,
+            p_telefono2,
+            p_usr_creo
+        );
+    END IF;
+
+    -- Insertar teléfono 3 (opcional)
+    IF p_telefono3 IS NOT NULL AND p_telefono3 <> '' THEN
+        INSERT INTO TBL_TELEFONOS (
+            FK_COD_PERSONA,
+            TELEFONO,
+            USR_CREO
+        ) VALUES (
+            v_cod_persona,
+            p_telefono3,
+            p_usr_creo
+        );
+    END IF;
 
     -- Insertar correo
     INSERT INTO TBL_CORREOS (
@@ -2966,16 +3040,12 @@ CREATE PROCEDURE GET_DESTINATARIOS_POR_CLIENTE(
 )
 BEGIN
     SELECT 
-        -- Datos del destinatario
         d.COD_DESTINATARIO,
-        -- Datos de la persona
         p.COD_PERSONA,
         p.ID_PERSONA,
         p.NOM_PERSONA,
-        -- Datos del género
         g.COD_GENERO,
         g.GENERO,
-        -- Datos de ubicación
         pa.COD_PAIS,
         pa.NOM_PAIS,
         pa.NUM_ZONA,
@@ -2984,30 +3054,38 @@ BEGIN
         mun.COD_MUNICIPIO,
         mun.NOM_MUNICIPIO,
         mun.ID_POSTAL,
-        -- Datos de dirección
         dir.COD_DIRECCION,
         dir.DIRECCION,
-        -- Datos de contacto
-        t.TELEFONO,
+        GROUP_CONCAT(DISTINCT t.TELEFONO) AS TELEFONOS,
         c.CORREO
     FROM TBL_DESTINATARIOS d
-    -- Join con persona
     INNER JOIN TBL_PERSONAS p ON d.FK_COD_PERSONA = p.COD_PERSONA
-    -- Join con género
     INNER JOIN TBL_GENEROS g ON p.FK_COD_GENERO = g.COD_GENERO
-    -- Joins con ubicación
     INNER JOIN TBL_PAISES pa ON p.FK_COD_PAIS = pa.COD_PAIS
     INNER JOIN TBL_DEPARTAMENTOS dep ON p.FK_COD_DEPARTAMENTO = dep.COD_DEPARTAMENTO
     INNER JOIN TBL_MUNICIPIOS mun ON p.FK_COD_MUNICIPIO = mun.COD_MUNICIPIO
-    -- Join con dirección
     LEFT JOIN TBL_DIRECCIONES dir ON p.COD_PERSONA = dir.FK_COD_PERSONA
-    -- Join con teléfono
     LEFT JOIN TBL_TELEFONOS t ON p.COD_PERSONA = t.FK_COD_PERSONA
-    -- Join con correo
-    LEFT JOIN TBL_CORREOS c ON p.COD_PERSONA = c.FK_COD_PERSONA
-    -- Filtrar por cliente específico
+    INNER JOIN TBL_CORREOS c ON p.COD_PERSONA = c.FK_COD_PERSONA
     WHERE d.FK_COD_CLIENTE = p_cod_cliente
-    -- Ordenar por código de destinatario
+    GROUP BY 
+        d.COD_DESTINATARIO,
+        p.COD_PERSONA,
+        p.ID_PERSONA,
+        p.NOM_PERSONA,
+        g.COD_GENERO,
+        g.GENERO,
+        pa.COD_PAIS,
+        pa.NOM_PAIS,
+        pa.NUM_ZONA,
+        dep.COD_DEPARTAMENTO,
+        dep.NOM_DEPARTAMENTO,
+        mun.COD_MUNICIPIO,
+        mun.NOM_MUNICIPIO,
+        mun.ID_POSTAL,
+        dir.COD_DIRECCION,
+        dir.DIRECCION,
+        c.CORREO
     ORDER BY d.COD_DESTINATARIO DESC;
 END$$
 

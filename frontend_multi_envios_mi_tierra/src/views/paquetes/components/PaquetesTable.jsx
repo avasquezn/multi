@@ -49,9 +49,13 @@ const PaquetesTable = () => {
     const [updatePaqueteOpen, setUpdatePaqueteOpen] = useState(false);
     const [selectedPaquete, setSelectedPaquete] = useState(null);
     
-    // Nuevos estados para los filtros
+    // Estados para filtros existentes
     const [filterCliente, setFilterCliente] = useState('');
     const [filterEstado, setFilterEstado] = useState('');
+    
+    // NUEVOS estados para filtros por país y género
+    const [filterPais, setFilterPais] = useState('');
+    const [filterGenero, setFilterGenero] = useState('');
     
     // Estados para actualización masiva
     const [selected, setSelected] = useState([]);
@@ -73,7 +77,7 @@ const PaquetesTable = () => {
 
     useEffect(() => {
         filterPaquetes();
-    }, [paquetes, searchTerm, filterCliente, filterEstado]);
+    }, [paquetes, searchTerm, filterCliente, filterEstado, filterPais, filterGenero]);
 
     const fetchPaquetes = async () => {
         setLoading(true);
@@ -92,7 +96,9 @@ const PaquetesTable = () => {
         const filtered = paquetes.filter((paquete) => {
             // Filtro de búsqueda general
             const matchesSearch = Object.values(paquete).some(
-                (val) => typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
+                (val) =>
+                    typeof val === 'string' &&
+                    val.toLowerCase().includes(searchTerm.toLowerCase())
             ) || getEstadoChip(paquete.ESTADO).label.toLowerCase().includes(searchTerm.toLowerCase());
             
             // Filtro por cliente
@@ -104,8 +110,18 @@ const PaquetesTable = () => {
             const matchesEstado = filterEstado !== '' 
                 ? paquete.ESTADO === parseInt(filterEstado)
                 : true;
+            
+            // Filtro por país (asumiendo que el campo es "PAIS_PERSONA")
+            const matchesPais = filterPais 
+                ? paquete.PAIS_PERSONA && paquete.PAIS_PERSONA.toLowerCase().includes(filterPais.toLowerCase())
+                : true;
+            
+            // Filtro por género (asumiendo que el campo es "GENERO_PERSONA")
+            const matchesGenero = filterGenero 
+                ? paquete.GENERO_PERSONA && paquete.GENERO_PERSONA.toLowerCase().includes(filterGenero.toLowerCase())
+                : true;
 
-            return matchesSearch && matchesCliente && matchesEstado;
+            return matchesSearch && matchesCliente && matchesEstado && matchesPais && matchesGenero;
         });
 
         const sorted = filtered.sort((a, b) => a.ESTADO - b.ESTADO);
@@ -246,6 +262,7 @@ const PaquetesTable = () => {
                         <TableCell># Envío</TableCell>
                         <TableCell>Subtotal</TableCell>
                         <TableCell>Descuento</TableCell>
+                        <TableCell>Depósito</TableCell>
                         <TableCell>Total</TableCell>
                         <TableCell>Fecha Entrega</TableCell>
                         {rolPermission?.canUpdate === 1 && <TableCell>Acciones</TableCell>}
@@ -282,6 +299,9 @@ const PaquetesTable = () => {
                                                 : paquete.DESCUENTO_CANTIDAD} %` 
                                             : `$ ${paquete.DESCUENTO_CANTIDAD}`
                                     ) : 'N/A'}
+                                </TableCell>
+                                <TableCell>
+                                    {paquete.ESTADO === 0 && paquete.DEPOSITO !== null ? `$ ${parseFloat(paquete.DEPOSITO).toFixed(2)}` : '—'}
                                 </TableCell>
                                 <TableCell>$ {paquete.PRECIO_FINAL}</TableCell>
                                 <TableCell>{paquete.FEC_ENTREGA}</TableCell>
@@ -424,6 +444,36 @@ const PaquetesTable = () => {
                     <MenuItem value={0}>Pendiente</MenuItem>
                     <MenuItem value={1}>En tránsito</MenuItem>
                     <MenuItem value={2}>Entregado</MenuItem>
+                </TextField>
+
+                <TextField
+                    select
+                    label="Filtrar por país"
+                    fullWidth
+                    value={filterPais}
+                    onChange={(e) => setFilterPais(e.target.value)}
+                >
+                    <MenuItem value="">Todos los países</MenuItem>
+                    {[...new Set(paquetes.map(p => p.PAIS_PERSONA))].sort().map((pais, index) => (
+                        <MenuItem key={index} value={pais}>
+                            {pais}
+                        </MenuItem>
+                    ))}
+                </TextField>
+
+                <TextField
+                    select
+                    label="Filtrar por género"
+                    fullWidth
+                    value={filterGenero}
+                    onChange={(e) => setFilterGenero(e.target.value)}
+                >
+                    <MenuItem value="">Todos los géneros</MenuItem>
+                    {[...new Set(paquetes.map(p => p.GENERO_PERSONA))].sort().map((genero, index) => (
+                        <MenuItem key={index} value={genero}>
+                            {genero}
+                        </MenuItem>
+                    ))}
                 </TextField>
             </Box>
 

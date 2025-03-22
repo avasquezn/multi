@@ -132,3 +132,29 @@ export const getCajasConInfo = async (req: Request, res: Response): Promise<Resp
         });
     }
 };
+
+export const getDepositos = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        // Llamar al procedimiento almacenado GET_DEPOSITOS
+        const depositos = await sequelize.query('CALL GET_DEPOSITOS()', {
+            type: QueryTypes.RAW,
+        });
+
+        // Devolver el resultado
+        return res.status(200).json({
+            message: 'Depósitos obtenidos correctamente.',
+            data: depositos,
+            success: true,
+        });
+    } catch (error: any) {
+        // Capturar y manejar errores
+        const errorMessage = error.original?.sqlMessage || error.message;
+        console.error('Error al obtener los depósitos:', error);
+
+        return res.status(500).json({
+            message: 'Ocurrió un error al obtener los depósitos.',
+            error: errorMessage,
+            success: false,
+        });
+    }
+};

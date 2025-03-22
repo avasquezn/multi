@@ -33,12 +33,14 @@ const PaqueteInsert = ({ show, handleClose, onPaqueteInserted }) => {
     const [selectedBoxes, setSelectedBoxes] = useState([]);
     const [selectedDiscount, setSelectedDiscount] = useState(null); // Estado para el descuento seleccionado
     const [boxCodigos, setBoxCodigos] = useState('');
+    const [deposito, setDeposito] = useState('');
 
     const [formData, setFormData] = useState({
         fk_cod_caja: '',
         fk_cod_cliente: '',
         fk_cod_envio: '',
         fk_cod_descuento: '', // Nuevo campo para el descuento
+        deposito: '',
         fec_entrega: '',
         usr_creo: user?.nom_usuario || ''
     });
@@ -48,6 +50,11 @@ const PaqueteInsert = ({ show, handleClose, onPaqueteInserted }) => {
     const [openSnackbar, setOpenSnackbar] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+    // Filtrar las cajas para que solo se muestren las que coincidan con el país del destinatario
+    const filteredBoxes = selectedEnvio && selectedEnvio.PaisDestinatario
+        ? boxes.filter(box => box.NOM_PAIS === selectedEnvio.PaisDestinatario)
+        : boxes;
 
     useEffect(() => {
         const fetchClientes = async () => {
@@ -172,6 +179,13 @@ const PaqueteInsert = ({ show, handleClose, onPaqueteInserted }) => {
             return;
         }
 
+        if (!deposito || isNaN(parseFloat(deposito))) {
+            setError('Debes ingresar un depósito válido');
+            return;
+        }
+
+        const depositoPorCaja = parseFloat(deposito) / selectedBoxes.length;
+
         const dataToSubmit = {
             paquetes: selectedBoxes.map((box) => ({
                 fk_cod_caja: box.COD_CAJA,
@@ -180,6 +194,7 @@ const PaqueteInsert = ({ show, handleClose, onPaqueteInserted }) => {
                 fk_cod_descuento: formData.fk_cod_descuento || null, // Incluir el descuento
                 fec_entrega: formData.fec_entrega || null,
                 usr_creo: formData.usr_creo,
+                deposito: depositoPorCaja.toFixed(2),
             })),
         };
     
@@ -210,6 +225,7 @@ const PaqueteInsert = ({ show, handleClose, onPaqueteInserted }) => {
             fk_cod_cliente: '',
             fk_cod_envio: '',
             fk_cod_descuento: '', // Reiniciar el campo de descuento
+            deposito: '',
             fec_entrega: '',
             usr_creo: user?.nom_usuario || ''
         });
@@ -300,25 +316,23 @@ const PaqueteInsert = ({ show, handleClose, onPaqueteInserted }) => {
                         />
 
                         {selectedEnvio && selectedEnvio.CantidadCajas && (
-                            <>
-                                <Autocomplete
-                                    multiple
-                                    options={boxes}
-                                    getOptionLabel={(option) => `${option.DETALLE} - ${option.NOM_PAIS}`}
-                                    value={selectedBoxes}
-                                    onChange={handleBoxSelectionChange}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            label={`Seleccionar Cajas (${selectedEnvio.CantidadCajas} disponibles)`}
-                                            required
-                                        />
-                                    )}
-                                    limitTags={2}
-                                    isOptionEqualToValue={() => false}
-                                    disableCloseOnSelect
-                                />
-                            </>
+                            <Autocomplete
+                                multiple
+                                options={filteredBoxes}
+                                getOptionLabel={(option) => `${option.DETALLE} - ${option.NOM_PAIS} - $${option.PRECIO}`}
+                                value={selectedBoxes}
+                                onChange={handleBoxSelectionChange}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label={`Seleccionar Cajas (${selectedEnvio.CantidadCajas} disponibles)`}
+                                        required
+                                    />
+                                )}
+                                limitTags={2}
+                                isOptionEqualToValue={() => false}
+                                disableCloseOnSelect
+                            />
                         )}
 
                         {/* Selector de descuentos */}
@@ -343,6 +357,16 @@ const PaqueteInsert = ({ show, handleClose, onPaqueteInserted }) => {
                             isOptionEqualToValue={(option, value) => 
                                 option?.COD_DESCUENTO === value?.COD_DESCUENTO
                             }
+                        />
+
+                        <TextField
+                            label="Depósito Total ($)"
+                            name="deposito"
+                            type="number"
+                            value={deposito}
+                            onChange={(e) => setDeposito(e.target.value)}
+                            required
+                            inputProps={{ min: 0, step: '0.01' }}
                         />
 
                         <TextField

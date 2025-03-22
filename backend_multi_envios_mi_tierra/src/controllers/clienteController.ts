@@ -13,7 +13,9 @@ export const insertCliente = async (req: Request, res: Response): Promise<Respon
         fk_cod_departamento,
         fk_cod_municipio,
         // Datos de contacto
-        telefono,
+        telefono1,
+        telefono2,
+        telefono3,
         correo,
         // Datos de dirección
         direccion,
@@ -25,7 +27,7 @@ export const insertCliente = async (req: Request, res: Response): Promise<Respon
         const result = await sequelize.query(
             'CALL INS_CLIENTE(:p_id_persona, :p_nom_persona, :p_fk_cod_genero, ' +
             ':p_fk_cod_pais, :p_fk_cod_departamento, :p_fk_cod_municipio, ' +
-            ':p_telefono, :p_correo, :p_direccion, :p_usr_creo);',
+            ':p_telefono1, :p_telefono2, :p_telefono3, :p_correo, :p_direccion, :p_usr_creo);',
             {
                 replacements: {
                     p_id_persona: id_persona,
@@ -34,7 +36,9 @@ export const insertCliente = async (req: Request, res: Response): Promise<Respon
                     p_fk_cod_pais: fk_cod_pais,
                     p_fk_cod_departamento: fk_cod_departamento,
                     p_fk_cod_municipio: fk_cod_municipio,
-                    p_telefono: telefono,
+                    p_telefono1: telefono1,
+                    p_telefono2: telefono2, // puede enviarse vacío o null si no se ingresa
+                    p_telefono3: telefono3, // puede enviarse vacío o null si no se ingresa
                     p_correo: correo,
                     p_direccion: direccion,
                     p_usr_creo: usr_creo
@@ -51,7 +55,7 @@ export const insertCliente = async (req: Request, res: Response): Promise<Respon
     } catch (error: any) {
         const errorMessage = error.original?.sqlMessage || error.message;
 
-        // Manejar errores específicos
+        // Manejar errores específicos por duplicidad
         if (errorMessage.includes('Duplicate entry')) {
             if (errorMessage.includes('TELEFONO')) {
                 return res.status(400).json({

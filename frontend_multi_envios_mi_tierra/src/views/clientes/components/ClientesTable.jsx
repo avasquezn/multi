@@ -90,6 +90,15 @@ const ClientesTable = () => {
         }
     };
 
+    const handleDestinatarioInserted = () => {
+        if (selectedCliente?.COD_CLIENTE) {
+            fetchDestinatarios(selectedCliente.COD_CLIENTE);
+            setSnackbarMessage('Destinatario agregado correctamente');
+            setSnackbarSeverity('success');
+            setOpenSnackbar(true);
+        }
+    };
+
     const handleExpand = async (codCliente) => {
         if (expandedRow === codCliente) {
             setExpandedRow(null);
@@ -187,7 +196,7 @@ const ClientesTable = () => {
                         {!isMobile && (
                             <>
                                 <TableCell>{cliente.GENERO}</TableCell>
-                                <TableCell>{cliente.TELEFONO}</TableCell>
+                                <TableCell>{cliente.TELEFONOS}</TableCell>
                                 <TableCell>{cliente.CORREO}</TableCell>
                                 <TableCell>
                                     {`${cliente.NOM_MUNICIPIO}, ${cliente.NOM_DEPARTAMENTO}`}
@@ -254,7 +263,7 @@ const ClientesTable = () => {
                                                 {destinatarios[cliente.COD_CLIENTE]?.map((destinatario) => (
                                                     <TableRow key={destinatario.COD_DESTINATARIO}>
                                                         <TableCell>{destinatario.NOM_PERSONA}</TableCell>
-                                                        <TableCell>{destinatario.TELEFONO}</TableCell>
+                                                        <TableCell>{destinatario.TELEFONOS}</TableCell>
                                                         <TableCell>
                                                             {`${destinatario.DIRECCION || 'N/A'}`}
                                                         </TableCell>
@@ -379,7 +388,7 @@ const ClientesTable = () => {
                 show={insertDestinatarioOpen} 
                 handleClose={() => setInsertDestinatarioOpen(false)} 
                 fk_cod_cliente={selectedCliente?.COD_CLIENTE} 
-                onDestinatarioInserted={fetchClientes} 
+                onDestinatarioInserted={handleDestinatarioInserted} 
             />
 
             <UpdateCliente

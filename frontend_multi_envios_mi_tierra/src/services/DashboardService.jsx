@@ -50,3 +50,13 @@ export const getCajasConInfo = async () => {
         throw new Error(error.response?.data?.message || 'Error al obtener las cajas.');
     }
 };
+
+export const getDepositos = async () => {
+    try {
+        const response = await api.get('/dashboard/depositos');
+        return response.data?.data || [];
+    } catch (error) {
+        console.error('Error al obtener los depósitos:', error);
+        throw new Error(error.response?.data?.message || 'Error al obtener los depósitos.');
+    }
+};
