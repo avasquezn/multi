@@ -7,7 +7,7 @@ import PageContainer from 'src/components/container/PageContainer';
 import AuthLogin from './auth/AuthLogin';
 
 // Importa el logo
-import MECLogo from 'src/assets/images/logos/MEC.png';
+import MECLogo from 'src/assets/images/logos/5.png';
 
 const Login2 = () => {
   const { isAuthenticated } = useAuth();
